@@ -1,5 +1,5 @@
 // ============================================================
-// hud.js - J.A.R. Skybound Pro Canvas 2D HUD v2.6
+// hud.js - Canvas 2D Retina 抬頭顯示器 (HUD)
 // ============================================================
 
 import { SIM_CONFIG, I18N } from './config.js';
@@ -19,57 +19,58 @@ export class HUD {
     }
 
     resize() {
-        const rect = this.canvas.parentElement.getBoundingClientRect();
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        this.canvas.width = rect.width * dpr;
-        this.canvas.height = rect.height * dpr;
-        this.canvas.style.width = rect.width + 'px';
-        this.canvas.style.height = rect.height + 'px';
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        this.canvas.width = w * dpr;
+        this.canvas.height = h * dpr;
+        this.canvas.style.width = w + 'px';
+        this.canvas.style.height = h + 'px';
+        this.ctx.setTransform(1, 0, 0, 1, 0, 0);
         this.ctx.scale(dpr, dpr);
-        this.width = rect.width;
-        this.height = rect.height;
+        this.width = w;
+        this.height = h;
     }
 
     update(data) {
         Object.assign(this.data, data);
-
         if (data.vdi_deviation !== undefined) {
-            const alpha = SIM_CONFIG.HUD.VDI_FILTER_ALPHA;
+            const alpha = SIM_CONFIG.HUD?.VDI_FILTER_ALPHA ?? 0.15;
             this.filteredVdiDev += alpha * (data.vdi_deviation - this.filteredVdiDev);
         } else {
             this.filteredVdiDev = 0;
         }
-
         this.draw();
     }
 
     draw() {
         const ctx = this.ctx;
         const W = this.width, H = this.height;
-        const t = I18N[SIM_CONFIG.currentLang];
+        if (!W || !H) return;
         ctx.clearRect(0, 0, W, H);
 
-        const cx = W / 2, cy = H / 2 - 20;
-        const radius = Math.min(W, H) * 0.22;
+        const cx = W / 2, cy = H / 2 - 15;
+        const radius = Math.min(W, H) * 0.18;
+
+        const tapeW = 55;
+        const tapeH = H * 0.5;
+        const tapeLeftX = Math.max(20, W * 0.12);
+        const tapeRightX = Math.min(W - 75, W * 0.88 - tapeW);
 
         this.drawADI(ctx, cx, cy, radius);
-        this.drawTape(ctx, 'left', 30, H * 0.2, 55, H * 0.55, this.data.speed, 0, 1000, 'SPD');
-        this.drawTape(ctx, 'right', W - 85, H * 0.2, 55, H * 0.55, this.data.altitude, 0, 60000, 'ALT');
-        this.drawHeadingTape(ctx, W * 0.25, 30, W * 0.5, 35, this.data.heading);
+        this.drawTape(ctx, 'left', tapeLeftX, H * 0.25, tapeW, tapeH, this.data.speed, 0, 1000, 'SPD');
+        this.drawTape(ctx, 'right', tapeRightX, H * 0.25, tapeW, tapeH, this.data.altitude, 0, 60000, 'ALT');
+        this.drawHeadingTape(ctx, W * 0.3, 20, W * 0.4, 30, this.data.heading);
 
         if (this.data.alpha !== undefined && this.data.beta !== undefined) {
             this.drawFPM(ctx, cx, cy, this.data.alpha, this.data.beta);
         }
 
         if (this.data.vnav_active) {
-            this.drawVDI(ctx, W - 120, H * 0.47, 110, this.filteredVdiDev);
+            this.drawVDI(ctx, tapeRightX - 20, H * 0.5, 100, this.filteredVdiDev);
         }
 
-        this.drawFmsNavData(ctx, W * 0.5, 80);
         this.drawStatus(ctx, W / 2, H - 25);
-
-        if (this.data.aoa > 17) this.drawWarning(ctx, W / 2, H * 0.15, t.stall, '#ff3333');
-        if (this.data.mach > 0.85) this.drawWarning(ctx, W / 2, H * 0.20, t.flutter, '#ff3333');
     }
 
     drawADI(ctx, cx, cy, r) {
@@ -93,7 +94,7 @@ export class HUD {
                 ctx.moveTo(-r * 0.45, y); ctx.lineTo(r * 0.45, y);
                 ctx.lineWidth = 2;
             } else {
-                const len = (deg % 10 === 0) ? r * 0.22 : r * 0.1;
+                const len = (deg % 10 === 0) ? r * 0.20 : r * 0.1;
                 ctx.moveTo(-len, y); ctx.lineTo(len, y);
                 ctx.lineWidth = 1;
             }
@@ -238,7 +239,7 @@ export class HUD {
         ctx.fillStyle = '#ffffff';
         ctx.lineWidth = 1;
 
-        const maxDev = SIM_CONFIG.HUD.VDI_MAX_DEV_FT;
+        const maxDev = 1000;
         const scale = (h / 2) / maxDev;
         const clampedDev = Math.max(-maxDev, Math.min(maxDev, deviationFt));
         const diamondY = y - (clampedDev * scale);
@@ -259,24 +260,6 @@ export class HUD {
         ctx.closePath();
         ctx.fill(); ctx.stroke();
 
-        ctx.font = '9px monospace';
-        ctx.textAlign = 'right';
-        ctx.fillStyle = '#ff00ff';
-        ctx.fillText('VDI', x - 10, y + 3);
-
-        ctx.restore();
-    }
-
-    drawFmsNavData(ctx, x, y) {
-        if (!this.data.activeWaypoint) return;
-        ctx.save();
-        ctx.fillStyle = '#00ffff';
-        ctx.font = 'bold 12px monospace';
-        ctx.textAlign = 'center';
-
-        const distNm = ((this.data.waypointDistance || 0) * 0.000539957).toFixed(1);
-        const text = `WPT: ${this.data.activeWaypoint} | DIST: ${distNm} NM | VNAV: ${this.data.vnav_phase || 'OFF'}`;
-        ctx.fillText(text, x, y);
         ctx.restore();
     }
 
@@ -287,17 +270,6 @@ export class HUD {
         ctx.textAlign = 'center';
         const info = `SPD ${Math.round(this.data.speed)}kt  ALT ${Math.round(this.data.altitude)}ft  M ${this.data.mach.toFixed(2)}  AOA ${this.data.aoa.toFixed(1)}°  G ${this.data.gForce.toFixed(1)}`;
         ctx.fillText(info, x, y);
-        ctx.restore();
-    }
-
-    drawWarning(ctx, x, y, text, color) {
-        ctx.save();
-        ctx.shadowColor = color;
-        ctx.shadowBlur = 12;
-        ctx.fillStyle = color;
-        ctx.font = 'bold 20px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(text, x, y);
         ctx.restore();
     }
 }
