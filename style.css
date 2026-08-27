@@ -1,17 +1,16 @@
 /* ============================================================
-   J.A.R. Skybound - 手機極簡懸浮座艙樣式表 v3.6.2
+   J.A.R. Skybound - 極簡自適應座艙樣式表 v3.6.3
    ============================================================ */
 
 :root {
     --bg-dark: #070c14;
-    --panel-bg: rgba(9, 16, 26, 0.75);
-    --panel-border: rgba(0, 220, 255, 0.3);
+    --panel-bg: rgba(9, 16, 26, 0.85);
+    --panel-border: rgba(0, 220, 255, 0.35);
     --hud-cyan: #00f3ff;
     --hud-green: #00ff88;
     --hud-amber: #ffaa00;
     --hud-red: #ff3344;
-    --hud-magenta: #ff00ff;
-    --font-avionics: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --font-avionics: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Roboto, sans-serif;
 }
 
 * { 
@@ -28,15 +27,15 @@ body {
     user-select: none; 
     -webkit-user-select: none;
     touch-action: none;
+    width: 100vw;
+    height: 100vh;
 }
 
-/* 啟動畫面 */
+/* 啟動選單 */
 #start-screen { 
     position: absolute; 
-    top: 0; 
-    left: 0; 
-    width: 100vw; 
-    height: 100vh; 
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh; 
     background: radial-gradient(circle at center, #10223d 0%, #040810 100%); 
     z-index: 100; 
     display: flex; 
@@ -48,7 +47,7 @@ body {
 
 .header-bar { width: 100%; display: flex; justify-content: flex-end; }
 .pill-btn {
-    background: rgba(0, 243, 255, 0.12); 
+    background: rgba(0, 243, 255, 0.15); 
     border: 1px solid var(--hud-cyan);
     color: var(--hud-cyan); 
     padding: 6px 14px; 
@@ -73,10 +72,7 @@ body {
     flex-direction: column;
     gap: 12px; 
     width: 100%; 
-    max-width: 450px; 
-}
-@media (min-width: 600px) {
-    .setup-grid { flex-direction: row; }
+    max-width: 420px; 
 }
 
 .setup-card { 
@@ -84,7 +80,6 @@ body {
     border: 1px solid var(--panel-border); 
     border-radius: 10px; 
     padding: 10px 12px; 
-    flex: 1; 
     text-align: center; 
 }
 
@@ -123,32 +118,33 @@ body {
 #canvas-container { position: absolute; width: 100vw; height: 100vh; z-index: 1; }
 #hud-canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; }
 
-/* 頂部極簡 Telemetry 狀態條 */
+/* 頂部極簡狀態條 (全透明浮動) */
 #telemetry-bar {
     position: absolute; 
-    top: 6px; 
+    top: 8px; 
     left: 50%; 
     transform: translateX(-50%);
     z-index: 20; 
-    background: rgba(5, 12, 22, 0.55); 
+    background: rgba(5, 12, 22, 0.6); 
     border: 1px solid rgba(0, 220, 255, 0.25);
     border-radius: 16px; 
-    padding: 3px 12px; 
+    padding: 3px 10px; 
     display: flex; 
-    gap: 10px;
+    gap: 8px;
     font-size: 10px; 
     color: var(--hud-cyan); 
     backdrop-filter: blur(6px); 
     pointer-events: none;
+    white-space: nowrap;
 }
 
-/* ================= 浮動儀表控制 (可收起/摺疊) ================= */
+/* ⚙️ 右上角儀表折疊按鈕 */
 #top-menu-btn {
     position: absolute;
-    top: 6px;
-    right: 10px;
-    z-index: 35;
-    background: rgba(6, 14, 25, 0.7);
+    top: 8px;
+    right: 8px;
+    z-index: 40;
+    background: rgba(6, 14, 25, 0.85);
     border: 1px solid var(--hud-cyan);
     color: var(--hud-cyan);
     font-size: 11px;
@@ -159,74 +155,67 @@ body {
     backdrop-filter: blur(6px);
 }
 
+/* 浮動抽屜選單 (預設徹底隱藏) */
 #drawer-panel {
     position: absolute;
-    top: 38px;
-    right: 10px;
-    z-index: 30;
-    display: flex;
+    top: 40px;
+    right: 8px;
+    z-index: 35;
+    display: none; /* 預設不顯示，點擊按鈕才彈出 */
     flex-direction: column;
     gap: 8px;
     max-height: calc(100vh - 100px);
     overflow-y: auto;
-    transition: transform 0.25s ease, opacity 0.25s ease;
 }
 
-#drawer-panel.collapsed {
-    transform: translateX(120%);
-    opacity: 0;
-    pointer-events: none;
+#drawer-panel.open {
+    display: flex !important;
 }
 
-/* EICAS 面板 */
 #eicas-display {
     background: var(--panel-bg); 
     border: 1px solid var(--panel-border);
     border-radius: 8px; 
-    padding: 6px 10px; 
+    padding: 8px 10px; 
     color: var(--hud-cyan);
     font-size: 10px; 
-    backdrop-filter: blur(8px);
+    backdrop-filter: blur(10px);
 }
 .eicas-title { font-weight: bold; color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 2px; margin-bottom: 4px; text-align: center; }
 .eicas-grid { display: flex; gap: 10px; }
 .eng-name { color: var(--hud-amber); font-weight: bold; }
 
-/* 教官台 (IOS) */
 #ios-panel {
     display: flex; 
     flex-direction: column; 
     gap: 4px; 
 }
 .ios-btn {
-    background: rgba(14, 24, 40, 0.85); 
+    background: rgba(14, 24, 40, 0.9); 
     color: #fff; 
     border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 5px 8px; 
+    padding: 6px 8px; 
     border-radius: 4px; 
-    font-size: 9.5px; 
+    font-size: 10px; 
     cursor: pointer; 
 }
 .active_fault { background: #e74c3c !important; border-color: #ff0000 !important; }
 
-/* 示波器 */
 #oscilloscope-container {
     background: var(--panel-bg); 
     border: 1px solid var(--panel-border);
     border-radius: 6px; 
-    padding: 4px; 
+    padding: 6px; 
 }
-.scope-header { display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 2px; }
-.scope-toggle-btn { background: rgba(20,35,55,0.7); border: 1px solid rgba(0,220,255,0.3); color: #fff; font-size: 8.5px; padding: 1px 4px; border-radius: 2px; }
-#oscilloscope-canvas { display: block; width: 180px; height: 75px; background: rgba(3, 8, 15, 0.9); }
+.scope-header { display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 3px; }
+.scope-toggle-btn { background: rgba(20,35,55,0.7); border: 1px solid rgba(0,220,255,0.3); color: #fff; font-size: 9px; padding: 2px 5px; border-radius: 2px; }
+#oscilloscope-canvas { display: block; width: 190px; height: 80px; background: rgba(3, 8, 15, 0.95); }
 
-/* ================= 觸控操控層 (左推桿 + 右搖桿) ================= */
+/* ================= 觸控操控層 ================= */
 #touch-controls {
     position: absolute; 
-    top: 0; 
-    left: 0; 
-    width: 100vw; 
-    height: 100vh;
+    top: 0; left: 0; 
+    width: 100vw; height: 100vh;
     z-index: 22; 
     pointer-events: none;
 }
@@ -234,7 +223,7 @@ body {
 #left-controls {
     position: absolute; 
     bottom: 50px; 
-    left: 10px; 
+    left: 8px; 
     display: flex; 
     gap: 6px;
     align-items: flex-end; 
@@ -254,7 +243,7 @@ body {
 }
 
 .ctrl-label { font-size: 9px; color: var(--hud-cyan); font-weight: bold; }
-#touch-throttle { -webkit-appearance: slider-vertical; width: 18px; height: 85px; accent-color: #00ff88; }
+#touch-throttle { -webkit-appearance: slider-vertical; width: 18px; height: 90px; accent-color: #00ff88; }
 #thr-val-text { font-size: 9.5px; color: #00ff88; font-weight: bold; }
 
 .rudder-bar { display: flex; flex-direction: column; gap: 4px; }
@@ -263,7 +252,7 @@ body {
     border: 1px solid rgba(0, 180, 255, 0.35);
     color: var(--hud-cyan); 
     width: 32px; 
-    height: 26px; 
+    height: 28px; 
     border-radius: 4px;
     font-size: 10px; 
     font-weight: bold; 
@@ -276,13 +265,13 @@ body {
 #right-controls {
     position: absolute; 
     bottom: 50px; 
-    right: 12px; 
+    right: 8px; 
     pointer-events: auto;
 }
 
 #virtual-stick-zone {
-    width: 95px; 
-    height: 95px; 
+    width: 90px; 
+    height: 90px; 
     border-radius: 50%;
     background: radial-gradient(circle, rgba(0, 243, 255, 0.05) 0%, rgba(5, 16, 32, 0.55) 100%);
     border: 1.5px solid rgba(0, 243, 255, 0.3); 
@@ -291,25 +280,22 @@ body {
 }
 
 #virtual-stick-knob {
-    width: 32px; 
-    height: 32px; 
+    width: 30px; 
+    height: 30px; 
     border-radius: 50%;
     background: radial-gradient(circle at 35% 35%, #00ffff 0%, #0077aa 100%);
     position: absolute; 
-    top: 50%; 
-    left: 50%;
+    top: 50%; left: 50%;
     transform: translate(-50%, -50%);
     box-shadow: 0 0 10px rgba(0, 243, 255, 0.6);
 }
 
-/* 底部 MCP 面板 (高度縮小至 40px，按鈕緊湊) */
+/* 底部 MCP 窄版面板 */
 .cockpit-glare-shield {
     position: absolute; 
-    bottom: 0; 
-    left: 0; 
-    right: 0; 
-    height: 42px;
-    background: rgba(5, 10, 18, 0.92);
+    bottom: 0; left: 0; right: 0; 
+    height: 40px;
+    background: rgba(5, 10, 18, 0.95);
     border-top: 1px solid rgba(0, 220, 255, 0.35);
     display: flex;
     justify-content: center;
@@ -321,15 +307,15 @@ body {
     display: flex; 
     justify-content: center; 
     align-items: center;
-    gap: 6px;
-    padding: 0 6px; 
+    gap: 4px;
+    padding: 0 4px; 
     overflow-x: auto;
     width: 100%;
 }
 
 .mcp-btn {
-    padding: 3px 7px; 
-    font-size: 9.5px; 
+    padding: 3px 6px; 
+    font-size: 9px; 
     border: 1px solid rgba(0, 200, 255, 0.3);
     background: rgba(18, 28, 44, 0.85); 
     color: #9ab0c7; 
@@ -339,8 +325,8 @@ body {
 }
 .mcp-btn.active { background: #00ff88; color: #000; }
 .mcp-btn.active_lnav { background: var(--hud-cyan); color: #000; }
-.mcp-btn.active_vnav { background: var(--hud-magenta); color: #fff; }
+.mcp-btn.active_vnav { background: #ff00ff; color: #fff; }
 
-.mcp-group { display: flex; align-items: center; gap: 2px; font-size: 9.5px; color: var(--hud-cyan); }
-.mcp-val { background: #000; padding: 2px 4px; border: 1px solid rgba(0, 200, 255, 0.3); border-radius: 2px; min-width: 32px; text-align: center; }
-.mcp-step-btn { padding: 2px 5px; font-size: 9.5px; background: #141f30; border: 1px solid rgba(0, 200, 255, 0.3); color: var(--hud-cyan); cursor: pointer; }
+.mcp-group { display: flex; align-items: center; gap: 2px; font-size: 9px; color: var(--hud-cyan); }
+.mcp-val { background: #000; padding: 2px 3px; border: 1px solid rgba(0, 200, 255, 0.3); border-radius: 2px; min-width: 30px; text-align: center; }
+.mcp-step-btn { padding: 2px 4px; font-size: 9px; background: #141f30; border: 1px solid rgba(0, 200, 255, 0.3); color: var(--hud-cyan); cursor: pointer; }
