@@ -44,7 +44,7 @@ export const SIM_CONFIG = {
 export const I18N = {
     zh: {
         title: "J.A.R. 衝上雲霄 Pro",
-        subtitle: "科研級 Web 飛行模擬認證平台 (v3.3)",
+        subtitle: "PWA 飛行模擬器",
         startBtn: "進入駕駛艙 / 啟動引擎",
         langBtn: "English",
         modeLabel: "模擬級別",
@@ -53,12 +53,12 @@ export const I18N = {
         rudderL: "◀",
         rudderR: "▶",
         brakes: "BRK",
-        modes: { junior: "學員 / 兒童", advanced: "進階飛手", captain: "機長 / 科研" },
+        modes: { junior: "學員 / 兒童", advanced: "進階飛手", captain: "機長 / 專業" },
         weather: { day: "晴空 (日間)", sunset: "黃昏日落", night: "夜間儀表", storm: "暴風雨" }
     },
     en: {
         title: "J.A.R. Skybound Pro",
-        subtitle: "Scientific-Grade Web Flight Simulation Platform (v3.3)",
+        subtitle: "PWA Flight Simulator",
         startBtn: "ENTER COCKPIT / START ENGINE",
         langBtn: "中文",
         modeLabel: "SIM LEVEL",
@@ -67,7 +67,7 @@ export const I18N = {
         rudderL: "◀",
         rudderR: "▶",
         brakes: "BRK",
-        modes: { junior: "Cadet / Easy", advanced: "Advanced", captain: "Captain / Research" },
+        modes: { junior: "Cadet / Easy", advanced: "Advanced", captain: "Captain / Pro" },
         weather: { day: "Day Clear", sunset: "Sunset", night: "Night IFR", storm: "Storm" }
     }
 };
