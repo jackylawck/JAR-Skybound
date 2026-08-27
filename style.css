@@ -1,10 +1,10 @@
 /* ============================================================
-   J.A.R. Skybound - 完美橫屏適配與樣式表 v3.6.9
+   J.A.R. Skybound - 左上選單與觸控強化樣式表 v3.7.0
    ============================================================ */
 
 :root {
     --bg-dark: #070c14;
-    --panel-bg: rgba(9, 16, 26, 0.85);
+    --panel-bg: rgba(9, 16, 26, 0.88);
     --panel-border: rgba(0, 220, 255, 0.35);
     --hud-cyan: #00f3ff;
     --hud-green: #00ff88;
@@ -22,7 +22,7 @@
 html, body { 
     width: 100%;
     height: 100%;
-    height: 100dvh; /* 支援動態視口高度，防止橫屏時被導航欄擠扁 */
+    height: 100dvh;
     overflow: hidden; 
     background-color: var(--bg-dark); 
     color: #fff; 
@@ -32,6 +32,7 @@ html, body {
     touch-action: none;
 }
 
+/* 啟動選單 */
 #start-screen { 
     position: absolute; 
     top: 0; left: 0; 
@@ -43,6 +44,7 @@ html, body {
     justify-content: space-between; 
     align-items: center; 
     padding: 20px 16px;
+    pointer-events: auto;
 }
 
 .header-bar { width: 100%; display: flex; justify-content: flex-end; }
@@ -117,9 +119,32 @@ html, body {
 #canvas-container { position: absolute; width: 100%; height: 100%; z-index: 1; }
 #hud-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
 
+/* 🏠 左上角：返回選單按鈕 */
+#btn-return-menu {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 45;
+    background: rgba(6, 14, 25, 0.85);
+    border: 1px solid var(--hud-cyan);
+    color: var(--hud-cyan);
+    font-size: 10px;
+    font-weight: bold;
+    padding: 3px 7px;
+    border-radius: 4px;
+    cursor: pointer;
+    backdrop-filter: blur(6px);
+    pointer-events: auto;
+}
+#btn-return-menu:active {
+    background: var(--hud-cyan);
+    color: #000;
+}
+
+/* 頂部中央：極簡狀態條 */
 #telemetry-bar {
     position: absolute; 
-    top: 3px; 
+    top: 4px; 
     left: 50%; 
     transform: translateX(-50%);
     z-index: 20; 
@@ -129,44 +154,47 @@ html, body {
     padding: 2px 8px; 
     display: flex; 
     gap: 6px;
-    font-size: 9.5px; 
+    font-size: 9px; 
     color: var(--hud-cyan); 
     backdrop-filter: blur(4px); 
     pointer-events: none;
     white-space: nowrap;
 }
 
-#top-btn-group {
+/* 📊 右上角：儀表/故障按鈕 */
+#top-menu-btn {
     position: absolute;
-    top: 3px;
+    top: 4px;
     right: 4px;
-    z-index: 40;
-    display: flex;
-    gap: 4px;
-}
-
-#btn-return-menu, #top-menu-btn {
+    z-index: 45;
     background: rgba(6, 14, 25, 0.85);
     border: 1px solid var(--hud-cyan);
     color: var(--hud-cyan);
     font-size: 10px;
     font-weight: bold;
-    padding: 3px 6px;
+    padding: 3px 7px;
     border-radius: 4px;
     cursor: pointer;
     backdrop-filter: blur(6px);
+    pointer-events: auto;
+}
+#top-menu-btn:active {
+    background: var(--hud-cyan);
+    color: #000;
 }
 
+/* 浮動抽屜選單 */
 #drawer-panel {
     position: absolute;
-    top: 32px;
+    top: 34px;
     right: 4px;
-    z-index: 35;
+    z-index: 50;
     display: none;
     flex-direction: column;
     gap: 6px;
     max-height: calc(100% - 80px);
     overflow-y: auto;
+    pointer-events: auto;
 }
 
 #drawer-panel.open { display: flex !important; }
@@ -206,6 +234,7 @@ html, body {
 .scope-toggle-btn { background: rgba(20,35,55,0.7); border: 1px solid rgba(0,220,255,0.3); color: #fff; font-size: 8px; padding: 1px 4px; border-radius: 2px; }
 #oscilloscope-canvas { display: block; width: 170px; height: 70px; background: rgba(3, 8, 15, 0.95); }
 
+/* 觸控操控層 */
 #touch-controls {
     position: absolute; 
     top: 0; left: 0; 
@@ -284,6 +313,7 @@ html, body {
     box-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
 }
 
+/* 底部 MCP 窄版面板 */
 .cockpit-glare-shield {
     position: absolute; 
     bottom: 0; left: 0; right: 0; 
@@ -325,6 +355,7 @@ html, body {
 .mcp-val { background: #000; padding: 1px 3px; border: 1px solid rgba(0, 200, 255, 0.3); border-radius: 2px; min-width: 26px; text-align: center; }
 .mcp-step-btn { padding: 1px 3px; font-size: 8px; background: #141f30; border: 1px solid rgba(0, 200, 255, 0.3); color: var(--hud-cyan); cursor: pointer; }
 
+/* 墜毀結算彈窗 */
 #crash-modal {
     position: absolute;
     top: 0; left: 0;
