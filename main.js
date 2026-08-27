@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - J.A.R. Skybound v3.6 (大氣、遠山、海面、精細客機與 FPS 監控)
+// main.js - J.A.R. Skybound v3.6.6 (真實座艙視角修正版)
 // ============================================================
 
 if (window.top !== window.self) {
@@ -205,7 +205,7 @@ document.querySelectorAll('#group-weather .opt-btn').forEach(btn => {
 });
 
 // ============================================================
-// 3. 次世代 Three.js 渲染管線 (Rayleigh 大氣、遠山、海面、精細客機)
+// 3. 次世代 Three.js 渲染管線 (大氣散射、遠山、海面、精細客機)
 // ============================================================
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.2, 200000);
@@ -222,7 +222,7 @@ const sunLight = new THREE.DirectionalLight(0xfff8ee, 1.5);
 sunLight.position.set(8000, 12000, 6000); 
 scene.add(sunLight);
 
-// 🎨 A. 大氣散射著色器穹頂 (Rayleigh Dome)
+// 大氣散射天穹
 const skyGeo = new THREE.SphereGeometry(150000, 32, 20);
 const skyMat = new THREE.ShaderMaterial({
     vertexShader: `
@@ -260,7 +260,7 @@ const skyMat = new THREE.ShaderMaterial({
 const skyDome = new THREE.Mesh(skyGeo, skyMat);
 scene.add(skyDome);
 
-// 🎨 B. 遠景連綿山巒 (Procedural Mountain Ridgelines)
+// 遠山山脊
 const mountainGroup = new THREE.Group();
 const mtnGeo = new THREE.ConeGeometry(4500, 3200, 7);
 const mtnMat = new THREE.MeshLambertMaterial({ color: 0x334433, flatShading: true });
@@ -273,7 +273,7 @@ for (let a = 0; a < Math.PI * 2; a += 0.35) {
 }
 scene.add(mountainGroup);
 
-// 🎨 C. 2048px 高精雙層大地紋理
+// 高精雙層大地地貌
 function createHighResTerrainTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 2048; canvas.height = 2048;
@@ -317,7 +317,7 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-// 🎨 D. 動態反光海面 (Dynamic Ocean Specular Surface)
+// 動態反光海面
 const oceanGeo = new THREE.PlaneGeometry(80000, 120000);
 const oceanMat = new THREE.MeshPhongMaterial({
     color: 0x0f2d4a,
@@ -329,10 +329,10 @@ const oceanMat = new THREE.MeshPhongMaterial({
 });
 const ocean = new THREE.Mesh(oceanGeo, oceanMat);
 ocean.rotation.x = -Math.PI / 2;
-ocean.position.set(-50000, -0.5, 0); // 位於跑道左側西面大洋
+ocean.position.set(-50000, -0.5, 0);
 scene.add(ocean);
 
-// 🎨 E. ICAO 規範跑道與機場地景
+// 跑道與機場地景
 function createRunwayTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 1024; canvas.height = 4096;
@@ -362,7 +362,6 @@ runway.rotation.x = -Math.PI / 2; runway.position.set(0, 0.2, 3000); scene.add(r
 const taxiway = new THREE.Mesh(new THREE.PlaneGeometry(40, 6000), new THREE.MeshLambertMaterial({ color: 0x22262a }));
 taxiway.rotation.x = -Math.PI / 2; taxiway.position.set(130, 0.15, 3000); scene.add(taxiway);
 
-// 機場建築群
 const airportGroup = new THREE.Group();
 const towerBase = new THREE.Mesh(new THREE.CylinderGeometry(4, 6, 45, 16), new THREE.MeshLambertMaterial({ color: 0xdde2e6 }));
 towerBase.position.set(200, 22.5, 3000);
@@ -373,7 +372,7 @@ terminal.position.set(240, 9, 2800);
 airportGroup.add(towerBase, towerTop, terminal);
 scene.add(airportGroup);
 
-// 🎨 F. 發光跑道燈與 PAPI 系統
+// 發光跑道燈與 PAPI
 function createGlowSpriteTexture(colorStr) {
     const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
     const ctx = canvas.getContext('2d');
@@ -407,18 +406,15 @@ for (let p = 0; p < 4; p++) {
     scene.add(sp); papiSprites.push(sp);
 }
 
-// 🎨 G. 3D 程序化噴氣客機模型 (附座艙視角立柱)
+// 3D 客機外部模型
 const airplaneGroup = new THREE.Group();
 const planeBodyMat = new THREE.MeshStandardMaterial({ color: 0xf0f3f6, roughness: 0.35, metalness: 0.2 });
 const planeDarkMat = new THREE.MeshStandardMaterial({ color: 0x1a232f, roughness: 0.5 });
 
-// 機身
 const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 32, 24), planeBodyMat);
 fuselage.rotation.x = Math.PI / 2;
-// 機鼻
 const noseCone = new THREE.Mesh(new THREE.ConeGeometry(1.9, 5, 24), planeBodyMat);
 noseCone.rotation.x = -Math.PI / 2; noseCone.position.set(0, 0, 18.5);
-// 主翼 (後掠翼 + 翼尖小翼)
 const wingL = new THREE.Mesh(new THREE.BoxGeometry(15, 0.3, 4.5), planeBodyMat);
 wingL.position.set(-9, -0.2, 2); wingL.rotation.y = -0.35; wingL.rotation.z = 0.05;
 const wingR = new THREE.Mesh(new THREE.BoxGeometry(15, 0.3, 4.5), planeBodyMat);
@@ -427,27 +423,21 @@ const wingletL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.6, 1.5), planeDarkM
 wingletL.position.set(-16.2, 0.6, 4.5);
 const wingletR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.6, 1.5), planeDarkMat);
 wingletR.position.set(16.2, 0.6, 4.5);
-// 垂直與水平尾翼
 const vTail = new THREE.Mesh(new THREE.BoxGeometry(0.4, 5.5, 4.2), planeDarkMat);
 vTail.position.set(0, 3.8, -13); vTail.rotation.x = -0.4;
 const hTailL = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.25, 2.2), planeBodyMat);
 hTailL.position.set(-3.2, 0.6, -14); hTailL.rotation.y = -0.3;
 const hTailR = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.25, 2.2), planeBodyMat);
 hTailR.position.set(3.2, 0.6, -14); hTailR.rotation.y = 0.3;
-// 雙發動機短艙
 const engMesh1 = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 4.2, 16), planeDarkMat);
 engMesh1.rotation.x = Math.PI / 2; engMesh1.position.set(-5.4, -1.2, 2.5);
 const engMesh2 = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 4.2, 16), planeDarkMat);
 engMesh2.rotation.x = Math.PI / 2; engMesh2.position.set(5.4, -1.2, 2.5);
 
-// 駕駛艙風擋立柱 (第一人稱座艙框)
-const cockpitFrame = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.06, 8, 16, Math.PI), planeDarkMat);
-cockpitFrame.position.set(0, 0.9, 13.5); cockpitFrame.rotation.x = Math.PI / 2;
-
-airplaneGroup.add(fuselage, noseCone, wingL, wingR, wingletL, wingletR, vTail, hTailL, hTailR, engMesh1, engMesh2, cockpitFrame);
+airplaneGroup.add(fuselage, noseCone, wingL, wingR, wingletL, wingletR, vTail, hTailL, hTailR, engMesh1, engMesh2);
 scene.add(airplaneGroup);
 
-// 🎨 H. 三層立體漂浮雲海
+// 雲層
 function createProceduralCloudTexture() {
     const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024;
     const ctx = canvas.getContext('2d');
@@ -483,7 +473,7 @@ function applyWeather(mode) {
         ambientLight.color.setHex(0xddeeff); ambientLight.intensity = 0.7;
         sunLight.color.setHex(0xfff8ee); sunLight.intensity = 1.4;
         cloudLayer1.material.opacity = 0.4;
-        if (envSpan) envSpan.innerText = 'ENV: DAY CLEAR';
+        if (envSpan) envSpan.innerText = 'DAY';
     } else if (mode === 'sunset') {
         skyMat.uniforms.topColor.value.setHex(0x2d1746);
         skyMat.uniforms.horizonColor.value.setHex(0xdd5e26);
@@ -491,7 +481,7 @@ function applyWeather(mode) {
         ambientLight.color.setHex(0xffaa88); ambientLight.intensity = 0.5;
         sunLight.color.setHex(0xff5511); sunLight.intensity = 1.1;
         cloudLayer1.material.opacity = 0.55;
-        if (envSpan) envSpan.innerText = 'ENV: SUNSET';
+        if (envSpan) envSpan.innerText = 'SUNSET';
     } else if (mode === 'night') {
         skyMat.uniforms.topColor.value.setHex(0x010308);
         skyMat.uniforms.horizonColor.value.setHex(0x060f1e);
@@ -499,7 +489,7 @@ function applyWeather(mode) {
         ambientLight.color.setHex(0x223355); ambientLight.intensity = 0.2;
         sunLight.intensity = 0.05;
         cloudLayer1.material.opacity = 0.15;
-        if (envSpan) envSpan.innerText = 'ENV: NIGHT IFR';
+        if (envSpan) envSpan.innerText = 'NIGHT';
     } else if (mode === 'storm') {
         skyMat.uniforms.topColor.value.setHex(0x11161d);
         skyMat.uniforms.horizonColor.value.setHex(0x222d38);
@@ -507,12 +497,12 @@ function applyWeather(mode) {
         ambientLight.color.setHex(0x445566); ambientLight.intensity = 0.4;
         sunLight.intensity = 0.2;
         cloudLayer1.material.opacity = 0.85;
-        if (envSpan) envSpan.innerText = 'ENV: STORM';
+        if (envSpan) envSpan.innerText = 'STORM';
     }
 }
 applyWeather('day');
 
-// 4. HUD 與示波器掛載
+// 4. HUD 與示波器
 let hudCanvas = document.getElementById('hud-canvas');
 if (!hudCanvas) {
     hudCanvas = document.createElement('canvas');
@@ -523,14 +513,13 @@ if (!hudCanvas) {
     hudCanvas.style.width = '100vw';
     hudCanvas.style.height = '100vh';
     hudCanvas.style.pointerEvents = 'none';
-    hudCanvas.style.zIndex = '12';
+    hudCanvas.style.zIndex = '10';
     document.getElementById('sim-interface')?.appendChild(hudCanvas);
 }
 const hud = new HUD(hudCanvas);
 
 const oscCanvas = document.getElementById('oscilloscope-canvas');
 const oscilloscope = new FlightOscilloscope(oscCanvas);
-document.getElementById('btn-toggle-scope')?.addEventListener('click', () => oscilloscope.toggle());
 document.getElementById('btn-scope-mode')?.addEventListener('click', () => oscilloscope.switchMode());
 document.getElementById('btn-fdr-export')?.addEventListener('click', () => fdr.exportCSV());
 
@@ -565,7 +554,7 @@ function handleStickMove(clientX, clientY) {
     const dx = clientX - stickCenter.x;
     const dy = clientY - stickCenter.y;
     const dist = Math.hypot(dx, dy);
-    const maxR = 40;
+    const maxR = 36;
     if (dist < 2.0) {
         if (stickKnob) stickKnob.style.transform = `translate(-50%, -50%)`;
         keyStateControls.aileron = 0;
@@ -611,7 +600,7 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', resetStick);
 
-// 6. 鍵盤飛行控制
+// 6. 鍵盤控制
 window.addEventListener('keydown', (e) => {
     if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keyStateControls.elevator = -0.8;
@@ -674,7 +663,7 @@ document.getElementById('hdg-dec')?.addEventListener('click', () => { ap.setTarg
 document.getElementById('alt-inc')?.addEventListener('click', () => { ap.setTarget('ALT', ap.targets.altitude + 500); updateMcpButtonsUI(); });
 document.getElementById('alt-dec')?.addEventListener('click', () => { ap.setTarget('ALT', ap.targets.altitude - 500); updateMcpButtonsUI(); });
 
-// 8. 模擬迴圈與 FPS 計算
+// 8. 模擬主迴圈
 let cloudOffset = 0;
 let frameCount = 0;
 let lastFpsTime = performance.now();
@@ -699,7 +688,6 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
         const dt = (now - lastFrameTime) / 1000;
         lastFrameTime = now;
 
-        // 實時 FPS 遙測計算
         frameCount++;
         if (now - lastFpsTime >= 1000) {
             const currentFps = Math.round((frameCount * 1000) / (now - lastFpsTime));
@@ -752,14 +740,10 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
             setVal('eicas-ff-2', Math.round(s.engineData.eng2_FF));
         }
 
-        const qbarKpa = (0.5 * (s.density || 1.225) * Math.pow(s.speed * UNITS.KTS_TO_MPS, 2) * UNITS.PA_TO_KPA).toFixed(1);
-        const telQbar = document.getElementById('tel-qbar');
-        if (telQbar) telQbar.innerText = `QBAR: ${qbarKpa} kPa`;
-
         const vspeedFpm = (s.dz ? -s.dz : 0) * UNITS.M_TO_FT * 60;
         sound.update(finalControls.throttle, s.speed, s.altitude, vspeedFpm, s.aoa, s.altitude <= 5);
 
-        // PAPI 盲降下滑燈物理視角計算
+        // PAPI 盲降下滑指示燈
         const distToRwy = Math.hypot(s.x, s.y - 350);
         if (distToRwy > 100 && s.y < 350) {
             const currentGlideAngle = Math.atan2(s.altitude * 0.3048, distToRwy) * (180 / Math.PI);
@@ -769,7 +753,6 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
             papiSprites[3].material = (currentGlideAngle > 2.5) ? lightSpriteMatWhite : lightSpriteMatRed;
         }
 
-        // 動態海面與雲層流動
         cloudOffset += dt * 0.002;
         cloudTex1.offset.set(cloudOffset * 1.5, cloudOffset * 0.8);
         cloudTex2.offset.set(cloudOffset * 0.9, cloudOffset * 0.5);
@@ -777,15 +760,24 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
         const planeAltitudeM = s.altMeters !== undefined ? s.altMeters : s.altitude * UNITS.FT_TO_M;
         const posX = s.x, posY = Math.max(2.4, planeAltitudeM + 2.4), posZ = s.y;
 
-        // 同步 3D 飛機模型位置與姿態
+        // 同步外部 3D 機體位置與姿態
         airplaneGroup.position.set(posX, posY - 0.4, posZ);
         airplaneGroup.rotation.order = 'YXZ';
         airplaneGroup.rotation.y = THREE.MathUtils.degToRad(-s.heading + 180);
         airplaneGroup.rotation.x = THREE.MathUtils.degToRad(-s.pitch);
         airplaneGroup.rotation.z = THREE.MathUtils.degToRad(s.roll);
 
-        // 攝影機駕駛艙視角追隨
-        camera.position.set(posX, posY, posZ);
+        // 第一人稱駕駛艙視角 (前推 14.5m 至機長風擋，徹底消除穿幫機鼻與機翼)
+        const forwardDist = 14.5;
+        const eyeHeight = 1.2;
+        const radH = THREE.MathUtils.degToRad(-s.heading);
+        const radP = THREE.MathUtils.degToRad(s.pitch);
+
+        const camX = posX - Math.sin(radH) * Math.cos(radP) * forwardDist;
+        const camY = posY + eyeHeight + Math.sin(radP) * forwardDist;
+        const camZ = posZ - Math.cos(radH) * Math.cos(radP) * forwardDist;
+
+        camera.position.set(camX, camY, camZ);
         camera.rotation.order = 'YXZ';
         camera.rotation.y = THREE.MathUtils.degToRad(-s.heading);
         camera.rotation.x = THREE.MathUtils.degToRad(s.pitch);
