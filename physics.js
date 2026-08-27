@@ -1,8 +1,7 @@
 // ============================================================
-// physics.js - 6-DOF 物理計算核心 v3.3
+// physics.js - 6-DOF 物理計算核心 v3.3 (含資安防禦邊界校驗)
 // ============================================================
 
-// 1. NASA CRM 氣動查表模型
 class NasaCrmAero {
     constructor() {
         this.name = "NASA CRM Wind-Tunnel Grid";
@@ -77,7 +76,6 @@ class NasaCrmAero {
     }
 }
 
-// 2. 雙轉子渦扇發動機模型
 class TurbofanEngine {
     constructor(engineId, maxThrustSL = 130000) {
         this.id = engineId;
@@ -403,28 +401,33 @@ function physicsLoop() {
 
 physicsLoop();
 
+// 🛡️ 企業級 Worker 消息輸入白名單與型態強校驗
 self.onmessage = function (e) {
     const d = e.data;
+    if (!d || typeof d !== 'object') return;
+
     if (d.type === 'config') {
-        if (d.level) {
+        if (typeof d.level === 'string') {
             if (d.level === 'junior') currentLevelCfg = { stabilityAssist: 0.95, stallProtection: true, windMultiplier: 0.0, liftBoost: 1.35, turbMultiplier: 0.0 };
             else if (d.level === 'captain') currentLevelCfg = { stabilityAssist: 0.0, stallProtection: false, windMultiplier: 1.3, liftBoost: 1.0, turbMultiplier: 1.3 };
             else currentLevelCfg = { stabilityAssist: 0.3, stallProtection: false, windMultiplier: 0.6, liftBoost: 1.0, turbMultiplier: 0.6 };
         }
-        if (d.weather) {
+        if (typeof d.weather === 'string') {
             const wm = currentLevelCfg.windMultiplier;
             if (d.weather === 'storm') { windGround.meanE = 15.0 * wm; windGround.meanN = 6.0 * wm; }
             else if (d.weather === 'night' || d.weather === 'sunset') { windGround.meanE = 5.0 * wm; windGround.meanN = 2.0 * wm; }
             else { windGround.meanE = 2.0 * wm; windGround.meanN = 0.5 * wm; }
         }
     } else if (d.type === 'controls') {
-        controls.elevator = d.elevator;
-        controls.aileron = d.aileron;
-        controls.rudder = d.rudder;
-        controls.throttle = d.throttle;
-        controls.brake = d.brake;
+        // 數值強制過濾與 Clamping
+        controls.elevator = Math.max(-1, Math.min(1, Number(d.elevator) || 0));
+        controls.aileron = Math.max(-1, Math.min(1, Number(d.aileron) || 0));
+        controls.rudder = Math.max(-1, Math.min(1, Number(d.rudder) || 0));
+        controls.throttle = Math.max(0, Math.min(1, Number(d.throttle) || 0));
+        controls.brake = Math.max(0, Math.min(1, Number(d.brake) || 0));
     } else if (d.type === 'fault') {
-        if (d.target === 'eng1') eng1.isFailed = d.active;
-        if (d.target === 'eng2') eng2.isFailed = d.active;
+        const isActive = Boolean(d.active);
+        if (d.target === 'eng1') eng1.isFailed = isActive;
+        if (d.target === 'eng2') eng2.isFailed = isActive;
     }
 };
