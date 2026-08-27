@@ -1,6 +1,11 @@
 // ============================================================
-// main.js - 主線程中樞 v3.3 (支援滑鼠、觸控與鍵盤手動操縱)
+// main.js - 主線程中樞 v3.3 (含點擊劫持防禦與 CSV 注入消毒)
 // ============================================================
+
+// 🛡️ 企業級防點擊劫持 (Clickjacking Frame-Busting)
+if (window.top !== window.self) {
+    window.top.location = window.self.location;
+}
 
 import { SIM_CONFIG, I18N, UNITS } from './config.js';
 import { SoundEngine } from './audio.js';
@@ -8,7 +13,7 @@ import { HUD } from './hud.js';
 import { Autopilot } from './autopilot.js';
 import { FMS } from './fms.js';
 
-// 內建 ARINC-717 黑匣子 (FDR)
+// 內建 ARINC-717 黑匣子 (含 CSV 注入公式消毒)
 class FlightDataRecorder {
     constructor(sampleRateHz = 20) {
         this.interval = 1.0 / sampleRateHz;
@@ -49,8 +54,15 @@ class FlightDataRecorder {
     }
     exportCSV() {
         if (this.records.length === 0) return alert("尚無飛行數據可導出！");
-        const headers = Object.keys(this.records[0]).join(",");
-        const rows = this.records.map(r => Object.values(r).join(",")).join("\n");
+        
+        // 🛡️ CSV 注入消毒防禦 (防止 Excel / Calc 執行公式)
+        const sanitize = (val) => {
+            const str = String(val);
+            return (/^[=+\-@\t\r]/.test(str)) ? `'${str}` : str;
+        };
+
+        const headers = Object.keys(this.records[0]).map(sanitize).join(",");
+        const rows = this.records.map(r => Object.values(r).map(sanitize).join(",")).join("\n");
         const blob = new Blob([headers + "\n" + rows], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -288,7 +300,7 @@ document.getElementById('btn-fault-eng2')?.addEventListener('click', (e) => {
     if (eng2Fault) sound.speak("ENGINE 2 FLAMEOUT");
 });
 
-// 5. 虛擬搖桿（支援滑鼠 Mouse + 觸控 Touch 全平台輸入）
+// 5. 虛擬搖桿 (滑鼠/觸控統一處理)
 const stickZone = document.getElementById('virtual-stick-zone');
 const stickKnob = document.getElementById('virtual-stick-knob');
 let isStickActive = false;
@@ -320,11 +332,10 @@ function handleStickMove(clientX, clientY) {
     const knobY = Math.sin(angle) * clampedDist;
 
     if (stickKnob) stickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
-    keyStateControls.aileron = knobX / maxR;     // 正值向右滾轉
-    keyStateControls.elevator = knobY / maxR;    // 下拉 (dy > 0) 為抬頭俯仰 (positive pitch)
+    keyStateControls.aileron = knobX / maxR;
+    keyStateControls.elevator = knobY / maxR;
 }
 
-// 觸控事件
 stickZone?.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
@@ -341,7 +352,6 @@ window.addEventListener('touchmove', (e) => {
 window.addEventListener('touchend', resetStick);
 window.addEventListener('touchcancel', resetStick);
 
-// 滑鼠事件 (支援電腦端直接拖曳操縱)
 stickZone?.addEventListener('mousedown', (e) => {
     e.preventDefault();
     if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
@@ -357,23 +367,15 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', resetStick);
 
-// 6. 鍵盤飛行控制 (方向鍵 / WASD)
+// 6. 鍵盤飛行控制
 window.addEventListener('keydown', (e) => {
     if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
-    
-    // 俯仰 (Pitch)
-    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keyStateControls.elevator = -0.8; // 推桿低頭
-    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keyStateControls.elevator = 0.8; // 拉桿抬頭
-    
-    // 滾轉 (Roll)
-    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyStateControls.aileron = -0.8; // 左傾
-    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyStateControls.aileron = 0.8; // 右傾
-    
-    // 偏航 (Rudder)
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keyStateControls.elevator = -0.8;
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keyStateControls.elevator = 0.8;
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyStateControls.aileron = -0.8;
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyStateControls.aileron = 0.8;
     if (e.key === 'q' || e.key === 'Q') keyStateControls.rudder = -1.0;
     if (e.key === 'e' || e.key === 'E') keyStateControls.rudder = 1.0;
-    
-    // 剎車 (Brake)
     if (e.key === ' ') keyStateControls.brake = 1.0;
 });
 
@@ -452,6 +454,7 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
 
     physicsWorker.onmessage = (e) => {
         const s = e.data;
+        if (!s || typeof s !== 'object') return;
         s_buffer = s;
 
         const now = performance.now();
