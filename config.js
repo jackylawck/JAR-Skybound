@@ -1,115 +1,73 @@
 // ============================================================
-// config.js - 全域設定、三級難度、環境與雙語字典
+// config.js - 全域靜態配置、單位制管理與多語言字典 v3.3
 // ============================================================
 
-export const I18N = {
-    zh: {
-        title: "J.A.R. 衝上雲霄 Pro",
-        subtitle: "科研級 Web 飛行模擬認證平台",
-        startBtn: "進入駕駛艙 / 啟動引擎",
-        modeLabel: "模擬級別",
-        modes: { junior: "學員 / 兒童", advanced: "進階飛手", captain: "機長 / 科研" },
-        weatherLabel: "天氣環境",
-        weather: { day: "晴空萬里 (日間)", sunset: "黃昏日落", night: "夜間儀表 (夜航)", storm: "暴風雨 / 側風" },
-        langBtn: "English",
-        throttle: "油門",
-        brakes: "剎車",
-        flaps: "襟翼",
-        gear: "起落架",
-        rudderL: "◀ 舵",
-        rudderR: "舵 ▶",
-        stall: "失速警告",
-        flutter: "氣動顫振",
-        pullUp: "拉升警告 (PULL UP)"
-    },
-    en: {
-        title: "J.A.R. Skybound Pro",
-        subtitle: "Scientific-Grade Web Flight Simulation Platform",
-        startBtn: "ENTER COCKPIT / START ENGINES",
-        modeLabel: "Flight Level",
-        modes: { junior: "Junior / Cadet", advanced: "Advanced", captain: "Captain / Pro" },
-        weatherLabel: "Environment",
-        weather: { day: "Clear Sky (Day)", sunset: "Sunset Twilight", night: "Night Flight (IFR)", storm: "Storm / Crosswind" },
-        langBtn: "繁體中文",
-        throttle: "THR",
-        brakes: "BRK",
-        flaps: "FLAPS",
-        gear: "GEAR",
-        rudderL: "◀ RUD",
-        rudderR: "RUD ▶",
-        stall: "STALL WARNING",
-        flutter: "FLUTTER RISK",
-        pullUp: "PULL UP"
-    }
+// 全局標準物理常數與單位轉換器 (Units Normalizer)
+export const UNITS = {
+    M_TO_FT: 3.28084,
+    FT_TO_M: 0.3048,
+    MPS_TO_KTS: 1.94384,
+    KTS_TO_MPS: 0.514444,
+    RAD_TO_DEG: 180 / Math.PI,
+    DEG_TO_RAD: Math.PI / 180,
+    PA_TO_KPA: 0.001,
+    G_ACCEL: 9.80665
 };
 
 export const SIM_CONFIG = {
     currentLang: 'zh',
-    currentLevel: 'advanced', // junior | advanced | captain
-    currentWeather: 'day',    // day | sunset | night | storm
+    currentLevel: 'advanced',
+    currentWeather: 'day',
+    currentAeroModel: 'crm', // 'crm' | 'naca'
 
-    LEVELS: {
-        junior: {
-            name: "Junior",
-            stabilityAssist: 0.95,   // 自動姿態扶正
-            stallProtection: true,   // 強制防失速
-            windMultiplier: 0.0,     // 無側風無湍流
-            liftBoost: 1.3           // 額外升力充裕
-        },
-        advanced: {
-            name: "Advanced",
-            stabilityAssist: 0.3,
-            stallProtection: false,
-            windMultiplier: 0.5,
-            liftBoost: 1.0
-        },
-        captain: {
-            name: "Captain",
-            stabilityAssist: 0.0,    // 全手動純物理
-            stallProtection: false,
-            windMultiplier: 1.2,     // 強側風與亂流
-            liftBoost: 1.0
-        }
+    // 發動機推進配置 (可選裝/微調)
+    ENGINE: {
+        MAX_THRUST_SL: 130000, // 單發海平面推力 (N)
+        IDLE_N1: 20.0,
+        MAX_N1: 100.0,
+        IDLE_N2: 58.0,
+        MAX_N2: 99.5,
+        TAU_ACCEL_N1: 2.4,     // N1 加速時間常數 (s)
+        TAU_DECEL_N1: 1.8,     // N1 減速時間常數 (s)
+        TAU_ACCEL_N2: 1.6,
+        TAU_DECEL_N2: 1.2
     },
 
-    AIRCRAFT: {
-        MASS: 75000,
-        WING_AREA: 129.15,
-        WING_SPAN: 35.8,
-        CHORD: 4.1,
-        MAX_THRUST: 260000,
-        STALL_SPEED_IAS: 135,
-        VMO_MAX_IAS: 350
-    },
-
+    // 飛控與自動駕駛
     AUTOPILOT: {
-        BASE_ALT_KP: 0.0035,
-        BASE_ALT_KI: 0.00005,
-        BASE_ALT_KD: 0.008,
-        BASE_HDG_KP: 0.025,
-        BASE_HDG_KI: 0.0001,
-        BASE_HDG_KD: 0.05,
-        BASE_SPD_KP: 0.015,
-        BASE_SPD_KI: 0.0008,
-        BASE_SPD_KD: 0.005,
-        PITCH_LIMIT_MAX: 25,
-        PITCH_LIMIT_MIN: -20,
-        ROLL_LIMIT: 30,
-        MANUAL_DEADZONE: 0.08
-    },
+        MANUAL_DEADZONE: 0.05,
+        MAX_BANK_ANGLE: 30,
+        MAX_PITCH_ANGLE: 20
+    }
+};
 
-    FMS: {
-        SPEED_ON_PITCH_GAIN: 0.012,
-        DESCENT_ANGLE_DEG: 3.0,
-        CAPTURE_ZONE_FT: 500,
-        SPD_LIMIT_ALT: 10000,
-        SPD_LIMIT_BELOW_10K: 250,
-        BASE_IDLE_THROTTLE: 0.05,
-        CLIMB_THROTTLE: 0.90
+export const I18N = {
+    zh: {
+        title: "J.A.R. 衝上雲霄 Pro",
+        subtitle: "科研級 Web 飛行模擬認證平台 (v3.3)",
+        startBtn: "進入駕駛艙 / 啟動引擎",
+        langBtn: "English",
+        modeLabel: "模擬級別",
+        weatherLabel: "天氣環境",
+        throttle: "油門",
+        rudderL: "◀",
+        rudderR: "▶",
+        brakes: "BRK",
+        modes: { junior: "學員 / 兒童", advanced: "進階飛手", captain: "機長 / 科研" },
+        weather: { day: "晴空 (日間)", sunset: "黃昏日落", night: "夜間儀表", storm: "暴風雨" }
     },
-
-    HUD: {
-        VDI_FILTER_ALPHA: 0.15,
-        VDI_MAX_DEV_FT: 1000
+    en: {
+        title: "J.A.R. Skybound Pro",
+        subtitle: "Scientific-Grade Web Flight Simulation Platform (v3.3)",
+        startBtn: "ENTER COCKPIT / START ENGINE",
+        langBtn: "中文",
+        modeLabel: "SIM LEVEL",
+        weatherLabel: "ENVIRONMENT",
+        throttle: "THROTTLE",
+        rudderL: "◀",
+        rudderR: "▶",
+        brakes: "BRK",
+        modes: { junior: "Cadet / Easy", advanced: "Advanced", captain: "Captain / Research" },
+        weather: { day: "Day Clear", sunset: "Sunset", night: "Night IFR", storm: "Storm" }
     }
 };
