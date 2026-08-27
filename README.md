@@ -1,4 +1,4 @@
-# 🛩️ J.A.R. 衝上雲霄 Pro | JAR Skybound Pro
+# 🛩️ J.A.R. 衝上雲霄 | JAR Skybound
 
 ---
 
