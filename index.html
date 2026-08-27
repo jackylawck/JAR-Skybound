@@ -23,7 +23,7 @@
     
     <div class="logo-box">
         <h1 id="ui-title">J.A.R. 衝上雲霄 Pro</h1>
-        <h3 id="ui-subtitle" class="subtitle">科研級 Web 飛行模擬認證平台 (v3.2)</h3>
+        <h3 id="ui-subtitle" class="subtitle">科研級 Web 飛行模擬認證平台 (v3.3)</h3>
     </div>
 
     <!-- 難度與環境選擇器 -->
@@ -57,7 +57,7 @@
 <div id="sim-interface">
     <div id="canvas-container"></div>
 
-    <!-- 頂部即時環境狀態條 (Telemetry Bar) -->
+    <!-- 頂部即時環境狀態條 -->
     <div id="telemetry-bar">
         <span id="tel-mode">LEVEL: ADVANCED</span>
         <span id="tel-env">ENV: DAY CLEAR</span>
@@ -84,20 +84,23 @@
         </div>
     </div>
 
-    <!-- 右上角教官故障台 (IOS) 與 FDR 黑匣子導出 -->
+    <!-- 右上角教官故障台 (IOS) 與 FDR 黑匣子 -->
     <div id="ios-panel">
         <button id="btn-fdr-export" class="ios-btn fdr-btn">📥 導出 FDR 黑匣子 (CSV)</button>
         <button id="btn-fault-eng1" class="ios-btn fault-btn">⚠️ 左發停車 (ENG 1 FAIL)</button>
         <button id="btn-fault-eng2" class="ios-btn fault-btn">⚠️ 右發停車 (ENG 2 FAIL)</button>
     </div>
 
-    <!-- 即時遙測示波器 (可收起/展開) -->
+    <!-- 即時遙測示波器 (含模式切換) -->
     <div id="oscilloscope-container">
         <div class="scope-header">
-            <span>REAL-TIME OSCILLOSCOPE</span>
-            <button id="btn-toggle-scope" class="scope-toggle-btn">收起/展開</button>
+            <span id="scope-mode-label">AERO (AoA/Pitch/G)</span>
+            <div class="scope-btns">
+                <button id="btn-scope-mode" class="scope-toggle-btn">切換通道</button>
+                <button id="btn-toggle-scope" class="scope-toggle-btn">收起/展開</button>
+            </div>
         </div>
-        <canvas id="oscilloscope-canvas"></canvas>
+        <canvas id="oscilloscope-canvas" width="240" height="110"></canvas>
     </div>
 
     <!-- 駕駛艙遮罩與 MCP 面板 -->
@@ -135,9 +138,8 @@
         </div>
     </div>
 
-    <!-- 手機觸控操控層 (Mobile Touch Controls) -->
+    <!-- 手機觸控操控層 -->
     <div id="touch-controls">
-        <!-- 左側：油門推桿與方向舵踏板 -->
         <div id="left-controls">
             <div class="throttle-container">
                 <span id="ui-thr-label" class="ctrl-label">油門</span>
@@ -152,7 +154,6 @@
             </div>
         </div>
 
-        <!-- 右側：虛擬飛行搖桿 (Virtual Yoke) -->
         <div id="right-controls">
             <div id="virtual-stick-zone">
                 <div id="virtual-stick-knob"></div>
