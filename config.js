@@ -1,8 +1,7 @@
 // ============================================================
-// config.js - J.A.R. Skybound 全域配置、單位制與多語言字典 v3.3
+// config.js - 全域配置與完整中英雙語字典 v3.6.8
 // ============================================================
 
-// 全局標準物理常數與單位轉換器 (Units Normalizer)
 export const UNITS = {
     M_TO_FT: 3.28084,
     FT_TO_M: 0.3048,
@@ -16,11 +15,10 @@ export const UNITS = {
 
 export const SIM_CONFIG = {
     currentLang: 'zh',
-    currentLevel: 'advanced',
+    currentLevel: 'junior',
     currentWeather: 'day',
-    currentAeroModel: 'crm', // 'crm' | 'naca'
+    currentAeroModel: 'crm',
 
-    // 飛機基準幾何與極限參數
     AIRCRAFT: {
         MASS: 75000,
         WING_AREA: 129.15,
@@ -32,53 +30,32 @@ export const SIM_CONFIG = {
         MMO_MAX_MACH: 0.85
     },
 
-    // 推進發動機配置
     ENGINE: {
         MAX_THRUST_SL: 130000,
         IDLE_N1: 20.0,
         MAX_N1: 100.0,
         IDLE_N2: 58.0,
-        MAX_N2: 99.5,
-        TAU_ACCEL_N1: 2.4,
-        TAU_DECEL_N1: 1.8,
-        TAU_ACCEL_N2: 1.6,
-        TAU_DECEL_N2: 1.2
+        MAX_N2: 99.5
     },
 
-    // 飛控與自動駕駛 PID
     AUTOPILOT: {
-        BASE_ALT_KP: 0.0035,
-        BASE_ALT_KI: 0.00005,
-        BASE_ALT_KD: 0.008,
-        BASE_HDG_KP: 0.025,
+        BASE_ALT_KP: 0.005,
+        BASE_ALT_KI: 0.00008,
+        BASE_ALT_KD: 0.012,
+        BASE_HDG_KP: 0.03,
         BASE_HDG_KI: 0.0001,
-        BASE_HDG_KD: 0.05,
-        BASE_SPD_KP: 0.015,
-        BASE_SPD_KI: 0.0008,
-        BASE_SPD_KD: 0.005,
-        PITCH_LIMIT_MAX: 25,
-        PITCH_LIMIT_MIN: -20,
-        ROLL_LIMIT: 30,
-        MANUAL_DEADZONE: 0.05,
-        MAX_BANK_ANGLE: 30,
-        MAX_PITCH_ANGLE: 20
+        BASE_HDG_KD: 0.06,
+        BASE_SPD_KP: 0.02,
+        BASE_SPD_KI: 0.001,
+        BASE_SPD_KD: 0.006,
+        PITCH_LIMIT_MAX: 20,
+        PITCH_LIMIT_MIN: -15,
+        ROLL_LIMIT: 25,
+        MANUAL_DEADZONE: 0.05
     },
 
-    // 飛行管理系統 (FMS & VNAV)
-    FMS: {
-        SPEED_ON_PITCH_GAIN: 0.012,
-        DESCENT_ANGLE_DEG: 3.0,
-        CAPTURE_ZONE_FT: 500,
-        SPD_LIMIT_ALT: 10000,
-        SPD_LIMIT_BELOW_10K: 250,
-        BASE_IDLE_THROTTLE: 0.05,
-        CLIMB_THROTTLE: 0.90
-    },
-
-    // 儀表與 HUD
     HUD: {
-        VDI_FILTER_ALPHA: 0.15,
-        VDI_MAX_DEV_FT: 1000
+        VDI_FILTER_ALPHA: 0.15
     }
 };
 
@@ -94,21 +71,45 @@ export const I18N = {
         rudderL: "◀",
         rudderR: "▶",
         brakes: "BRK",
-        modes: { junior: "學員 / 兒童", advanced: "進階飛手", captain: "機長 / 專業" },
-        weather: { day: "晴空 (日間)", sunset: "黃昏日落", night: "夜間儀表", storm: "暴風雨" }
+        menuBtn: "📊 儀表 / 故障 ▼",
+        eicasTitle: "發動機與燃油 (EICAS)",
+        eng1Lbl: "左發 1 (L)",
+        eng2Lbl: "右發 2 (R)",
+        fdrBtn: "📥 導出 FDR 黑匣子 (CSV)",
+        fault1: "⚠️ 左發停車 (ENG 1 FAIL)",
+        fault2: "⚠️ 右發停車 (ENG 2 FAIL)",
+        crashTitle: "⚠️ 飛機墜毀 (CRASH)",
+        crashDesc: "客機以過大下沉率或姿態接地損毀。",
+        crashSpd: "觸地空速:",
+        crashVs: "垂直下沉率:",
+        respawnBtn: "🔄 重新起飛 (RESPAWN)",
+        modes: { junior: "學員", advanced: "進階", captain: "機長" },
+        weather: { day: "晴空", sunset: "黃昏", night: "夜間", storm: "暴風雨" }
     },
     en: {
         title: "J.A.R. Skybound",
         subtitle: "PWA Flight Simulator",
-        startBtn: "ENTER COCKPIT / START ENGINE",
+        startBtn: "ENTER COCKPIT / START ENGINES",
         langBtn: "中文",
         modeLabel: "SIM LEVEL",
         weatherLabel: "ENVIRONMENT",
-        throttle: "THROTTLE",
+        throttle: "THR",
         rudderL: "◀",
         rudderR: "▶",
         brakes: "BRK",
-        modes: { junior: "Cadet / Easy", advanced: "Advanced", captain: "Captain / Pro" },
+        menuBtn: "📊 AVIONICS / IOS ▼",
+        eicasTitle: "ENGINE & FUEL (EICAS)",
+        eng1Lbl: "ENG 1 (L)",
+        eng2Lbl: "ENG 2 (R)",
+        fdrBtn: "📥 EXPORT FDR (CSV)",
+        fault1: "⚠️ ENG 1 FAIL",
+        fault2: "⚠️ ENG 2 FAIL",
+        crashTitle: "⚠️ CRASH DETECTED",
+        crashDesc: "Aircraft touched down with excessive sink rate or attitude.",
+        crashSpd: "Impact Speed:",
+        crashVs: "Vertical Speed:",
+        respawnBtn: "🔄 RESTART FLIGHT",
+        modes: { junior: "Cadet", advanced: "Advanced", captain: "Captain" },
         weather: { day: "Day Clear", sunset: "Sunset", night: "Night IFR", storm: "Storm" }
     }
 };
