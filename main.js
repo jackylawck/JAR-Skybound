@@ -1,855 +1,199 @@
-// ============================================================
-// main.js - J.A.R. Skybound v3.7.1 (全雙語覆蓋 + 觸控返回選單修復)
-// ============================================================
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a2a4a">
 
-if (window.top !== window.self) {
-    window.top.location = window.self.location;
-}
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline' blob:;
+        worker-src 'self' blob:;
+        style-src 'self' 'unsafe-inline';
+        img-src 'self' data: blob:;
+        connect-src 'self' blob:;
+        font-src 'self' data:;
+        object-src 'none';
+        base-uri 'self';
+        form-action 'self';
+        upgrade-insecure-requests;
+    ">
 
-import { SIM_CONFIG, I18N, UNITS } from './config.js';
-import { SoundEngine } from './audio.js';
-import { HUD } from './hud.js';
-import { Autopilot } from './autopilot.js';
-import { FMS } from './fms.js';
+    <meta http-equiv="X-Content-Type-Options" content="nosniff">
+    <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
+    <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)">
 
-class FlightDataRecorder {
-    constructor(sampleRateHz = 20) {
-        this.interval = 1.0 / sampleRateHz;
-        this.records = [];
-        this.lastSampleTime = 0;
-    }
-    recordFrame(timeSec, s, ctrl, ap) {
-        if (timeSec - this.lastSampleTime < this.interval) return;
-        this.lastSampleTime = timeSec;
-        if (this.records.length >= 36000) this.records.shift();
-        
-        this.records.push({
-            timestamp_s: timeSec.toFixed(2),
-            alt_ft: s.altitude.toFixed(1),
-            ias_kt: s.speed.toFixed(1),
-            mach: s.mach.toFixed(3),
-            pitch_deg: s.pitch.toFixed(2),
-            roll_deg: s.roll.toFixed(2),
-            hdg_deg: s.heading.toFixed(2),
-            nz_g: s.gForce.toFixed(2)
-        });
-    }
-    exportCSV() {
-        if (this.records.length === 0) {
-            alert(SIM_CONFIG.currentLang === 'zh' ? "尚無飛行數據可導出！" : "No flight data recorded!");
-            return;
-        }
-        const sanitize = (val) => {
-            const str = String(val);
-            return (/^[=+\-@\t\r]/.test(str)) ? `'${str}` : str;
-        };
-        const headers = Object.keys(this.records[0]).map(sanitize).join(",");
-        const rows = this.records.map(r => Object.values(r).map(sanitize).join(",")).join("\n");
-        const blob = new Blob([headers + "\n" + rows], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `Skybound_FDR_${Date.now()}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-    }
-}
+    <title>J.A.R. 衝上雲霄 | J.A.R. Skybound</title>
+    <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator.">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="jarSkybound192icon.png">
+    <link rel="stylesheet" href="style.css?v=3.7.2">
+</head>
+<body>
 
-class FlightOscilloscope {
-    constructor(canvas, maxPoints = 120) {
-        this.canvas = canvas;
-        this.ctx = canvas ? canvas.getContext('2d') : null;
-        this.maxPoints = maxPoints;
-        this.channels = { aoa: [], pitch: [], speed: [], gForce: [], n1: [] };
-        this.activeMode = 'aero';
-        this.isVisible = true;
-        this.isDirty = false;
-    }
-    pushData(aoa, pitch, speed, gForce, n1) {
-        const pushClamp = (arr, v) => { arr.push(v); if (arr.length > this.maxPoints) arr.shift(); };
-        pushClamp(this.channels.aoa, aoa);
-        pushClamp(this.channels.pitch, pitch);
-        pushClamp(this.channels.speed, speed);
-        pushClamp(this.channels.gForce, gForce);
-        pushClamp(this.channels.n1, n1);
-        this.isDirty = true;
-    }
-    switchMode() {
-        this.activeMode = (this.activeMode === 'aero') ? 'perf' : 'aero';
-        const label = document.getElementById('scope-mode-label');
-        if (label) label.innerText = this.activeMode.toUpperCase();
-    }
-    render() {
-        if (!this.ctx || !this.isVisible || !this.isDirty) return;
-        const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
-        ctx.clearRect(0, 0, W, H);
-        ctx.fillStyle = 'rgba(5, 15, 25, 0.85)';
-        ctx.fillRect(0, 0, W, H);
-        ctx.strokeStyle = 'rgba(0, 150, 200, 0.15)';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < W; x += 30) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
-        for (let y = 0; y < H; y += 20) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
-
-        if (this.activeMode === 'aero') {
-            this.drawCurve(this.channels.aoa, -5, 25, '#ff5500');
-            this.drawCurve(this.channels.pitch, -30, 30, '#00ffcc');
-            this.drawCurve(this.channels.gForce, 0, 3.5, '#ff00ff');
-        } else {
-            this.drawCurve(this.channels.speed, 100, 400, '#ffff00');
-            this.drawCurve(this.channels.n1, 20, 100, '#00ff66');
-        }
-        this.isDirty = false;
-    }
-    drawCurve(data, minVal, maxVal, color) {
-        if (data.length < 2) return;
-        const ctx = this.ctx, W = this.canvas.width, H = this.canvas.height;
-        const stepX = W / (this.maxPoints - 1);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        for (let i = 0; i < data.length; i++) {
-            const normY = 1.0 - (data[i] - minVal) / (maxVal - minVal);
-            const clampedY = Math.max(2, Math.min(H - 2, normY * H));
-            const x = i * stepX;
-            if (i === 0) ctx.moveTo(x, clampedY); else ctx.lineTo(x, clampedY);
-        }
-        ctx.stroke();
-    }
-}
-
-const sound = new SoundEngine();
-const ap = new Autopilot();
-const fms = new FMS();
-const fdr = new FlightDataRecorder(20);
-
-let lastFrameTime = performance.now();
-let s_buffer = { altitude: 10000, speed: 250, heading: 0, pitch: 0, roll: 0, x: 0, y: 0 };
-let physicsWorker = null;
-let isCrashed = false;
-let isSimRunning = false;
-
-const keyStateControls = { elevator: 0, aileron: 0, rudder: 0, throttle: 0.6, brake: 0, isManualThrottleInput: false };
-
-// 1. 100% 完整雙語切換與 DOM 即時同步
-function applyLanguage() {
-    const lang = SIM_CONFIG.currentLang;
-    const t = I18N[lang];
-    const safeSet = (id, txt) => { const el = document.getElementById(id); if (el) el.innerText = txt; };
+<!-- 啟動選單 (Start Screen) -->
+<div id="start-screen">
+    <div class="header-bar">
+        <button id="btn-lang" class="pill-btn">English</button>
+    </div>
     
-    safeSet('ui-title', t.title);
-    safeSet('ui-subtitle', t.subtitle);
-    safeSet('start-btn', t.startBtn);
-    safeSet('btn-lang', t.langBtn);
-    safeSet('ui-mode-label', t.modeLabel);
-    safeSet('ui-weather-label', t.weatherLabel);
-    safeSet('ui-thr-label', t.throttle);
-    safeSet('lbl-top-menu', t.menuBtn);
-    safeSet('lbl-menu-return', t.menuReturn);
-    safeSet('ui-eicas-title', t.eicasTitle);
-    safeSet('ui-eng1-lbl', t.eng1Lbl);
-    safeSet('ui-eng2-lbl', t.eng2Lbl);
-    safeSet('lbl-scope-toggle', t.scopeToggle);
-    safeSet('btn-fdr-export', t.fdrBtn);
-    safeSet('btn-fault-eng1', t.fault1);
-    safeSet('btn-fault-eng2', t.fault2);
-    safeSet('crash-title', t.crashTitle);
-    safeSet('crash-desc', t.crashDesc);
-    safeSet('lbl-crash-spd', t.crashSpd);
-    safeSet('lbl-crash-vs', t.crashVs);
-    safeSet('btn-respawn', t.respawnBtn);
-
-    safeSet('opt-junior', t.modes.junior);
-    safeSet('opt-advanced', t.modes.advanced);
-    safeSet('opt-captain', t.modes.captain);
-    safeSet('opt-day', t.weather.day);
-    safeSet('opt-sunset', t.weather.sunset);
-    safeSet('opt-night', t.weather.night);
-    safeSet('opt-storm', t.weather.storm);
-    
-    updateTelemetryBar();
-}
-
-function updateTelemetryBar() {
-    const t = I18N[SIM_CONFIG.currentLang];
-    const telMode = document.getElementById('tel-mode');
-    const telEnv = document.getElementById('tel-env');
-    if (telMode) telMode.innerText = t.modes[SIM_CONFIG.currentLevel] || SIM_CONFIG.currentLevel.toUpperCase();
-    if (telEnv) telEnv.innerText = t.weather[SIM_CONFIG.currentWeather] || SIM_CONFIG.currentWeather.toUpperCase();
-}
-
-// 點擊語言按鈕
-document.getElementById('btn-lang')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    SIM_CONFIG.currentLang = (SIM_CONFIG.currentLang === 'zh') ? 'en' : 'zh';
-    applyLanguage();
-});
-applyLanguage();
-
-document.querySelectorAll('#group-level .opt-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelectorAll('#group-level .opt-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        SIM_CONFIG.currentLevel = btn.dataset.val;
-        updateTelemetryBar();
-        if (physicsWorker) physicsWorker.postMessage({ type: 'config', level: SIM_CONFIG.currentLevel, weather: SIM_CONFIG.currentWeather });
-    });
-});
-
-document.querySelectorAll('#group-weather .opt-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        document.querySelectorAll('#group-weather .opt-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        SIM_CONFIG.currentWeather = btn.dataset.val;
-        applyWeather(SIM_CONFIG.currentWeather);
-        updateTelemetryBar();
-        if (physicsWorker) physicsWorker.postMessage({ type: 'config', level: SIM_CONFIG.currentLevel, weather: SIM_CONFIG.currentWeather });
-    });
-});
-
-// 🏠 返回首頁選單邏輯 (支援 pointerdown / click 雙重響應)
-function handleReturnToMenu(e) {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    const startScreen = document.getElementById('start-screen');
-    if (startScreen) {
-        startScreen.style.display = 'flex';
-        startScreen.style.zIndex = '999';
-    }
-    document.getElementById('drawer-panel')?.classList.remove('open');
-    applyLanguage();
-}
-
-const btnReturnMenu = document.getElementById('btn-return-menu');
-btnReturnMenu?.addEventListener('pointerdown', handleReturnToMenu);
-btnReturnMenu?.addEventListener('click', handleReturnToMenu);
-
-// ============================================================
-// 2. Three.js 渲染管線
-// ============================================================
-const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.2, 200000);
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.2;
-document.getElementById('canvas-container')?.appendChild(renderer.domElement);
-
-const ambientLight = new THREE.AmbientLight(0xccddff, 0.75); 
-scene.add(ambientLight);
-const sunLight = new THREE.DirectionalLight(0xfff8ee, 1.5); 
-sunLight.position.set(8000, 12000, 6000); 
-scene.add(sunLight);
-
-// 大氣天穹
-const skyGeo = new THREE.SphereGeometry(150000, 32, 20);
-const skyMat = new THREE.ShaderMaterial({
-    vertexShader: `
-        varying vec3 vWorldPosition;
-        void main() {
-            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
-            vWorldPosition = worldPosition.xyz;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-    `,
-    fragmentShader: `
-        uniform vec3 topColor;
-        uniform vec3 bottomColor;
-        uniform vec3 horizonColor;
-        uniform float exponent;
-        varying vec3 vWorldPosition;
-        void main() {
-            float h = normalize(vWorldPosition).y;
-            vec3 col = mix(bottomColor, horizonColor, max(0.0, 1.0 - abs(h) * 3.5));
-            if (h > 0.0) {
-                col = mix(horizonColor, topColor, pow(h, exponent));
-            }
-            gl_FragColor = vec4(col, 1.0);
-        }
-    `,
-    uniforms: {
-        topColor: { value: new THREE.Color(0x184c8a) },
-        horizonColor: { value: new THREE.Color(0x9eccf8) },
-        bottomColor: { value: new THREE.Color(0x1a2618) },
-        exponent: { value: 0.55 }
-    },
-    side: THREE.BackSide,
-    depthWrite: false
-});
-const skyDome = new THREE.Mesh(skyGeo, skyMat);
-scene.add(skyDome);
-
-// 遠山
-const mountainGroup = new THREE.Group();
-const mtnGeo = new THREE.ConeGeometry(4500, 3200, 7);
-const mtnMat = new THREE.MeshLambertMaterial({ color: 0x334433, flatShading: true });
-for (let a = 0; a < Math.PI * 2; a += 0.35) {
-    const dist = 35000 + Math.sin(a * 4) * 6000;
-    const mtn = new THREE.Mesh(mtnGeo, mtnMat);
-    mtn.position.set(Math.cos(a) * dist, 1200 + Math.random() * 600, Math.sin(a) * dist);
-    mtn.scale.set(1 + Math.random() * 0.8, 0.8 + Math.random() * 0.7, 1 + Math.random() * 0.8);
-    mountainGroup.add(mtn);
-}
-scene.add(mountainGroup);
-
-// 高精大地
-function createHighResTerrainTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 2048; canvas.height = 2048;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#1e2d1a'; ctx.fillRect(0, 0, 2048, 2048);
-
-    const fieldColors = ['#283b22', '#32452a', '#22301c', '#3a4a30', '#2a3520', '#1c2617', '#344229'];
-    const cols = 32, rows = 32;
-    const cw = 2048 / cols, ch = 2048 / rows;
-    for (let i = 0; i < cols; i++) {
-        for (let j = 0; j < rows; j++) {
-            ctx.fillStyle = fieldColors[(i * 11 + j * 17) % fieldColors.length];
-            ctx.fillRect(i * cw + 2, j * ch + 2, cw - 4, ch - 4);
-        }
-    }
-    ctx.strokeStyle = 'rgba(90, 85, 75, 0.35)'; ctx.lineWidth = 3;
-    for (let k = 0; k < 2048; k += 128) {
-        ctx.beginPath(); ctx.moveTo(0, k); ctx.lineTo(2048, k); ctx.stroke();
-        ctx.beginPath(); ctx.moveTo(k, 0); ctx.lineTo(k, 2048); ctx.stroke();
-    }
-    const imgData = ctx.getImageData(0, 0, 2048, 2048);
-    const data = imgData.data;
-    for (let p = 0; p < data.length; p += 4) {
-        const n = (Math.random() - 0.5) * 16;
-        data[p] = Math.max(0, Math.min(255, data[p] + n));
-        data[p+1] = Math.max(0, Math.min(255, data[p+1] + n));
-        data[p+2] = Math.max(0, Math.min(255, data[p+2] + n));
-    }
-    ctx.putImageData(imgData, 0, 0);
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-    tex.repeat.set(35, 35);
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    return tex;
-}
-
-const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(160000, 160000),
-    new THREE.MeshLambertMaterial({ map: createHighResTerrainTexture() })
-);
-ground.rotation.x = -Math.PI / 2;
-scene.add(ground);
-
-// 反光海面
-const oceanGeo = new THREE.PlaneGeometry(80000, 120000);
-const oceanMat = new THREE.MeshPhongMaterial({
-    color: 0x0f2d4a,
-    emissive: 0x04111f,
-    specular: 0x88ccff,
-    shininess: 90,
-    transparent: true,
-    opacity: 0.88
-});
-const ocean = new THREE.Mesh(oceanGeo, oceanMat);
-ocean.rotation.x = -Math.PI / 2;
-ocean.position.set(-50000, -0.5, 0);
-scene.add(ocean);
-
-// 跑道
-function createRunwayTexture() {
-    const canvas = document.createElement('canvas');
-    canvas.width = 1024; canvas.height = 4096;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#1a1c1e'; ctx.fillRect(0, 0, 1024, 4096);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(40, 0, 20, 4096); ctx.fillRect(964, 0, 20, 4096);
-    for (let y = 150; y < 3946; y += 160) { ctx.fillRect(502, y, 20, 90); }
-    for (let y = 400; y <= 1200; y += 200) {
-        ctx.fillRect(200, y, 90, 14); ctx.fillRect(320, y, 90, 14);
-        ctx.fillRect(614, y, 90, 14); ctx.fillRect(734, y, 90, 14);
-        ctx.fillRect(200, 4096 - y - 14, 90, 14); ctx.fillRect(320, 4096 - y - 14, 90, 14);
-        ctx.fillRect(614, 4096 - y - 14, 90, 14); ctx.fillRect(734, 4096 - y - 14, 90, 14);
-    }
-    for (let x = 100; x <= 900; x += 65) { ctx.fillRect(x, 80, 36, 220); ctx.fillRect(x, 3796, 36, 220); }
-    ctx.font = 'bold 150px Consolas, sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText('09', 512, 480);
-    ctx.save(); ctx.translate(512, 3616); ctx.rotate(Math.PI); ctx.fillText('27', 0, 0); ctx.restore();
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
-    return tex;
-}
-
-const runway = new THREE.Mesh(new THREE.PlaneGeometry(90, 6000), new THREE.MeshLambertMaterial({ map: createRunwayTexture() }));
-runway.rotation.x = -Math.PI / 2; runway.position.set(0, 0.2, 3000); scene.add(runway);
-
-const taxiway = new THREE.Mesh(new THREE.PlaneGeometry(40, 6000), new THREE.MeshLambertMaterial({ color: 0x22262a }));
-taxiway.rotation.x = -Math.PI / 2; taxiway.position.set(130, 0.15, 3000); scene.add(taxiway);
-
-// 機場建築
-const airportGroup = new THREE.Group();
-const towerBase = new THREE.Mesh(new THREE.CylinderGeometry(4, 6, 45, 16), new THREE.MeshLambertMaterial({ color: 0xdde2e6 }));
-towerBase.position.set(200, 22.5, 3000);
-const towerTop = new THREE.Mesh(new THREE.CylinderGeometry(9, 6, 10, 16), new THREE.MeshLambertMaterial({ color: 0x223344 }));
-towerTop.position.set(200, 48, 3000);
-const terminal = new THREE.Mesh(new THREE.BoxGeometry(70, 18, 280), new THREE.MeshLambertMaterial({ color: 0x8899aa }));
-terminal.position.set(240, 9, 2800);
-airportGroup.add(towerBase, towerTop, terminal);
-scene.add(airportGroup);
-
-// 跑道燈
-function createGlowSpriteTexture(colorStr) {
-    const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
-    grad.addColorStop(0, colorStr); grad.addColorStop(0.3, colorStr); grad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = grad; ctx.fillRect(0, 0, 64, 64);
-    return new THREE.CanvasTexture(canvas);
-}
-
-const glowTexWhite = createGlowSpriteTexture('rgba(255,255,240,1.0)');
-const glowTexGreen = createGlowSpriteTexture('rgba(0,255,120,1.0)');
-const glowTexRed = createGlowSpriteTexture('rgba(255,40,40,1.0)');
-
-const lightSpriteMatWhite = new THREE.SpriteMaterial({ map: glowTexWhite, transparent: true, blending: THREE.AdditiveBlending });
-const lightSpriteMatGreen = new THREE.SpriteMaterial({ map: glowTexGreen, transparent: true, blending: THREE.AdditiveBlending });
-const lightSpriteMatRed = new THREE.SpriteMaterial({ map: glowTexRed, transparent: true, blending: THREE.AdditiveBlending });
-
-for (let z = 0; z <= 6000; z += 120) {
-    const spL = new THREE.Sprite(lightSpriteMatWhite); spL.position.set(-47, 1.2, z); spL.scale.set(4.5, 4.5, 1); scene.add(spL);
-    const spR = new THREE.Sprite(lightSpriteMatWhite); spR.position.set(47, 1.2, z); spR.scale.set(4.5, 4.5, 1); scene.add(spR);
-}
-for (let x = -42; x <= 42; x += 12) {
-    const spT = new THREE.Sprite(lightSpriteMatGreen); spT.position.set(x, 1.2, 0); spT.scale.set(5, 5, 1); scene.add(spT);
-    const spE = new THREE.Sprite(lightSpriteMatRed); spE.position.set(x, 1.2, 6000); spE.scale.set(5, 5, 1); scene.add(spE);
-}
-
-const papiSprites = [];
-for (let p = 0; p < 4; p++) {
-    const sp = new THREE.Sprite(lightSpriteMatWhite.clone());
-    sp.position.set(-62 - (p * 5), 1.5, 350); sp.scale.set(4.5, 4.5, 1);
-    scene.add(sp); papiSprites.push(sp);
-}
-
-// 雲層
-function createProceduralCloudTexture() {
-    const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = '#000000'; ctx.fillRect(0, 0, 1024, 1024);
-    for (let i = 0; i < 90; i++) {
-        const rx = Math.random() * 1024, ry = Math.random() * 1024, rr = 50 + Math.random() * 120;
-        const grad = ctx.createRadialGradient(rx, ry, 0, rx, ry, rr);
-        grad.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
-        grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.12)');
-        grad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath(); ctx.arc(rx, ry, rr, 0, Math.PI * 2); ctx.fill();
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    tex.wrapS = THREE.RepeatWrapping; tex.wrapT = THREE.RepeatWrapping;
-    return tex;
-}
-
-const cloudTex1 = createProceduralCloudTexture(); cloudTex1.repeat.set(8, 8);
-const cloudTex2 = createProceduralCloudTexture(); cloudTex2.repeat.set(12, 12);
-const cloudLayer1 = new THREE.Mesh(new THREE.PlaneGeometry(120000, 120000), new THREE.MeshBasicMaterial({ map: cloudTex1, transparent: true, opacity: 0.4, depthWrite: false }));
-cloudLayer1.rotation.x = Math.PI / 2; cloudLayer1.position.y = 2000; scene.add(cloudLayer1);
-
-const cloudLayer2 = new THREE.Mesh(new THREE.PlaneGeometry(150000, 150000), new THREE.MeshBasicMaterial({ map: cloudTex2, transparent: true, opacity: 0.32, depthWrite: false }));
-cloudLayer2.rotation.x = Math.PI / 2; cloudLayer2.position.y = 4200; scene.add(cloudLayer2);
-
-function applyWeather(mode) {
-    if (mode === 'day') {
-        skyMat.uniforms.topColor.value.setHex(0x184c8a);
-        skyMat.uniforms.horizonColor.value.setHex(0x9eccf8);
-        skyMat.uniforms.bottomColor.value.setHex(0x1a2618);
-        scene.fog = new THREE.FogExp2(0xb2d6f8, 0.00003);
-        ambientLight.color.setHex(0xddeeff); ambientLight.intensity = 0.75;
-        sunLight.color.setHex(0xfff8ee); sunLight.intensity = 1.5;
-        cloudLayer1.material.opacity = 0.4;
-    } else if (mode === 'sunset') {
-        skyMat.uniforms.topColor.value.setHex(0x2d1746);
-        skyMat.uniforms.horizonColor.value.setHex(0xdd5e26);
-        skyMat.uniforms.bottomColor.value.setHex(0x150b05);
-        scene.fog = new THREE.FogExp2(0xcc6633, 0.00005);
-        ambientLight.color.setHex(0xffaa88); ambientLight.intensity = 0.6;
-        sunLight.color.setHex(0xff5511); sunLight.intensity = 1.2;
-        cloudLayer1.material.opacity = 0.55;
-    } else if (mode === 'night') {
-        skyMat.uniforms.topColor.value.setHex(0x050c18);
-        skyMat.uniforms.horizonColor.value.setHex(0x12243d);
-        skyMat.uniforms.bottomColor.value.setHex(0x0a1420);
-        scene.fog = new THREE.FogExp2(0x081324, 0.000045);
-        ambientLight.color.setHex(0x3a557a); ambientLight.intensity = 0.45;
-        sunLight.color.setHex(0x5577aa); sunLight.intensity = 0.25;
-        cloudLayer1.material.opacity = 0.2;
-    } else if (mode === 'storm') {
-        skyMat.uniforms.topColor.value.setHex(0x161e28);
-        skyMat.uniforms.horizonColor.value.setHex(0x2f3c4a);
-        skyMat.uniforms.bottomColor.value.setHex(0x10171e);
-        scene.fog = new THREE.FogExp2(0x24303d, 0.0001);
-        ambientLight.color.setHex(0x607085); ambientLight.intensity = 0.55;
-        sunLight.color.setHex(0x778899); sunLight.intensity = 0.4;
-        cloudLayer1.material.opacity = 0.75;
-    }
-}
-applyWeather(SIM_CONFIG.currentWeather);
-
-// 3. HUD 與示波器
-let hudCanvas = document.getElementById('hud-canvas');
-if (!hudCanvas) {
-    hudCanvas = document.createElement('canvas');
-    hudCanvas.id = 'hud-canvas';
-    hudCanvas.style.position = 'absolute';
-    hudCanvas.style.top = '0';
-    hudCanvas.style.left = '0';
-    hudCanvas.style.width = '100vw';
-    hudCanvas.style.height = '100vh';
-    hudCanvas.style.pointerEvents = 'none';
-    hudCanvas.style.zIndex = '10';
-    document.getElementById('sim-interface')?.appendChild(hudCanvas);
-}
-const hud = new HUD(hudCanvas);
-
-const oscCanvas = document.getElementById('oscilloscope-canvas');
-const oscilloscope = new FlightOscilloscope(oscCanvas);
-document.getElementById('btn-scope-mode')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    oscilloscope.switchMode();
-});
-document.getElementById('btn-fdr-export')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    fdr.exportCSV();
-});
-
-let eng1Fault = false, eng2Fault = false;
-document.getElementById('btn-fault-eng1')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    eng1Fault = !eng1Fault;
-    e.target.classList.toggle('active_fault', eng1Fault);
-    if (physicsWorker) physicsWorker.postMessage({ type: 'fault', target: 'eng1', active: eng1Fault });
-    if (eng1Fault) sound.speak("ENGINE 1 FLAMEOUT");
-});
-document.getElementById('btn-fault-eng2')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    eng2Fault = !eng2Fault;
-    e.target.classList.toggle('active_fault', eng2Fault);
-    if (physicsWorker) physicsWorker.postMessage({ type: 'fault', target: 'eng2', active: eng2Fault });
-    if (eng2Fault) sound.speak("ENGINE 2 FLAMEOUT");
-});
-
-// 4. 虛擬搖桿
-const stickZone = document.getElementById('virtual-stick-zone');
-const stickKnob = document.getElementById('virtual-stick-knob');
-let isStickActive = false;
-let stickCenter = { x: 0, y: 0 };
-
-function resetStick() {
-    isStickActive = false;
-    if (stickKnob) stickKnob.style.transform = `translate(-50%, -50%)`;
-    keyStateControls.aileron = 0;
-    keyStateControls.elevator = 0;
-}
-
-function handleStickMove(clientX, clientY) {
-    const dx = clientX - stickCenter.x;
-    const dy = clientY - stickCenter.y;
-    const dist = Math.hypot(dx, dy);
-    const maxR = 36;
-    if (dist < 2.0) {
-        if (stickKnob) stickKnob.style.transform = `translate(-50%, -50%)`;
-        keyStateControls.aileron = 0;
-        keyStateControls.elevator = 0;
-        return;
-    }
-    const clampedDist = Math.min(dist, maxR);
-    const angle = Math.atan2(dy, dx);
-    const knobX = Math.cos(angle) * clampedDist;
-    const knobY = Math.sin(angle) * clampedDist;
-
-    if (stickKnob) stickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
-    keyStateControls.aileron = knobX / maxR;
-    keyStateControls.elevator = knobY / maxR;
-}
-
-stickZone?.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
-    isStickActive = true;
-    const rect = stickZone.getBoundingClientRect();
-    stickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    handleStickMove(e.touches[0].clientX, e.touches[0].clientY);
-});
-window.addEventListener('touchmove', (e) => {
-    if (!isStickActive) return;
-    handleStickMove(e.touches[0].clientX, e.touches[0].clientY);
-});
-window.addEventListener('touchend', resetStick);
-window.addEventListener('touchcancel', resetStick);
-
-stickZone?.addEventListener('mousedown', (e) => {
-    e.preventDefault();
-    if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
-    isStickActive = true;
-    const rect = stickZone.getBoundingClientRect();
-    stickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-    handleStickMove(e.clientX, e.clientY);
-});
-window.addEventListener('mousemove', (e) => {
-    if (!isStickActive) return;
-    handleStickMove(e.clientX, e.clientY);
-});
-window.addEventListener('mouseup', resetStick);
-
-// 5. 鍵盤飛行控制
-window.addEventListener('keydown', (e) => {
-    if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
-    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keyStateControls.elevator = -0.8;
-    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keyStateControls.elevator = 0.8;
-    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyStateControls.aileron = -0.8;
-    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyStateControls.aileron = 0.8;
-    if (e.key === 'q' || e.key === 'Q') keyStateControls.rudder = -1.0;
-    if (e.key === 'e' || e.key === 'E') keyStateControls.rudder = 1.0;
-    if (e.key === ' ') keyStateControls.brake = 1.0;
-});
-window.addEventListener('keyup', (e) => {
-    if (['ArrowUp', 'ArrowDown', 'w', 's', 'W', 'S'].includes(e.key)) keyStateControls.elevator = 0;
-    if (['ArrowLeft', 'ArrowRight', 'a', 'd', 'A', 'D'].includes(e.key)) keyStateControls.aileron = 0;
-    if (['q', 'e', 'Q', 'E'].includes(e.key)) keyStateControls.rudder = 0;
-    if (e.key === ' ') keyStateControls.brake = 0;
-});
-
-const throttleSlider = document.getElementById('touch-throttle');
-const thrValText = document.getElementById('thr-val-text');
-throttleSlider?.addEventListener('input', (e) => {
-    const val = parseFloat(e.target.value) / 100;
-    keyStateControls.throttle = val;
-    keyStateControls.isManualThrottleInput = true;
-    if (thrValText) thrValText.innerText = `${Math.round(val * 100)}%`;
-});
-
-document.getElementById('btn-rud-left')?.addEventListener('pointerdown', () => keyStateControls.rudder = -1.0);
-document.getElementById('btn-rud-left')?.addEventListener('pointerup', () => keyStateControls.rudder = 0);
-document.getElementById('btn-rud-right')?.addEventListener('pointerdown', () => keyStateControls.rudder = 1.0);
-document.getElementById('btn-rud-right')?.addEventListener('pointerup', () => keyStateControls.rudder = 0);
-document.getElementById('btn-brake')?.addEventListener('pointerdown', () => keyStateControls.brake = 1.0);
-document.getElementById('btn-brake')?.addEventListener('pointerup', () => keyStateControls.brake = 0);
-
-// 6. MCP 面板
-const btnAP = document.getElementById('btn-ap');
-const btnLNAV = document.getElementById('btn-lnav');
-const btnVNAV = document.getElementById('btn-vnav');
-const valSpd = document.getElementById('mcp-spd-val');
-const valHdg = document.getElementById('mcp-hdg-val');
-const valAlt = document.getElementById('mcp-alt-val');
-
-ap.setVoiceCallback((msg) => sound.speak(msg));
-btnAP?.addEventListener('click', (e) => { e.stopPropagation(); ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); });
-btnLNAV?.addEventListener('click', (e) => { e.stopPropagation(); const active = fms.toggleLNAV(s_buffer); ap.modes.LNAV = active; if (active) ap.modes.HDG_HOLD = false; updateMcpButtonsUI(); });
-btnVNAV?.addEventListener('click', (e) => { e.stopPropagation(); ap.toggleMode('VNAV', s_buffer); updateMcpButtonsUI(); });
-
-function updateMcpButtonsUI() {
-    btnAP?.classList.toggle('active', ap.modes.AP_MASTER);
-    btnLNAV?.classList.toggle('active_lnav', ap.modes.LNAV);
-    btnVNAV?.classList.toggle('active_vnav', ap.modes.VNAV);
-    if (valSpd) valSpd.innerText = Math.round(ap.targets.speed);
-    if (valHdg) valHdg.innerText = Math.round(ap.targets.heading).toString().padStart(3, '0');
-    if (valAlt) valAlt.innerText = Math.round(ap.targets.altitude);
-}
-
-document.getElementById('spd-inc')?.addEventListener('click', () => { ap.setTarget('SPD', ap.targets.speed + 10); updateMcpButtonsUI(); });
-document.getElementById('spd-dec')?.addEventListener('click', () => { ap.setTarget('SPD', ap.targets.speed - 10); updateMcpButtonsUI(); });
-document.getElementById('hdg-inc')?.addEventListener('click', () => { ap.setTarget('HDG', ap.targets.heading + 5); updateMcpButtonsUI(); });
-document.getElementById('hdg-dec')?.addEventListener('click', () => { ap.setTarget('HDG', ap.targets.heading - 5); updateMcpButtonsUI(); });
-document.getElementById('alt-inc')?.addEventListener('click', () => { ap.setTarget('ALT', ap.targets.altitude + 500); updateMcpButtonsUI(); });
-document.getElementById('alt-dec')?.addEventListener('click', () => { ap.setTarget('ALT', ap.targets.altitude - 500); updateMcpButtonsUI(); });
-
-// 💥 墜毀判定與重新起飛處理
-const crashModal = document.getElementById('crash-modal');
-const crashSpdVal = document.getElementById('crash-spd-val');
-const crashVsVal = document.getElementById('crash-vs-val');
-document.getElementById('btn-respawn')?.addEventListener('click', respawnFlight);
-
-function triggerCrash(speed, vspeedFpm) {
-    if (isCrashed) return;
-    isCrashed = true;
-    sound.speak("PULL UP CRASH");
-    if (crashSpdVal) crashSpdVal.innerText = `${Math.round(speed)} kt`;
-    if (crashVsVal) crashVsVal.innerText = `${Math.round(vspeedFpm)} fpm`;
-    if (crashModal) crashModal.classList.remove('modal-hidden');
-}
-
-function respawnFlight() {
-    isCrashed = false;
-    if (crashModal) crashModal.classList.add('modal-hidden');
-    keyStateControls.throttle = 0.65;
-    keyStateControls.elevator = 0;
-    keyStateControls.aileron = 0;
-    keyStateControls.rudder = 0;
-    if (throttleSlider) throttleSlider.value = "65";
-    if (thrValText) thrValText.innerText = "65%";
-    
-    ap.targets.altitude = 10000;
-    ap.targets.speed = 250;
-    ap.targets.heading = 360;
-    updateMcpButtonsUI();
-
-    if (physicsWorker) {
-        physicsWorker.postMessage({
-            type: 'respawn',
-            state: { x: 0, y: 0, altMeters: 3048, speedKts: 250, heading: 0, pitch: 0, roll: 0 }
-        });
-    }
-}
-
-// 7. 啟動/進入駕駛艙 (支援重複點擊從選單切換回到飛行)
-document.getElementById('start-btn')?.addEventListener('click', async (e) => {
-    e.preventDefault();
-    sound.init();
-    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try { await DeviceOrientationEvent.requestPermission(); } catch (err) { console.error(err); }
-    }
-    const startScreen = document.getElementById('start-screen');
-    if (startScreen) startScreen.style.display = 'none';
-
-    applyLanguage();
-
-    if (!physicsWorker) {
-        physicsWorker = new Worker('physics.js');
-        physicsWorker.onmessage = handlePhysicsMessage;
-    }
-
-    physicsWorker.postMessage({ type: 'config', level: SIM_CONFIG.currentLevel, weather: SIM_CONFIG.currentWeather });
-
-    if (!isSimRunning) {
-        isSimRunning = true;
-        animate();
-    }
-});
-
-function handlePhysicsMessage(e) {
-    const s = e.data;
-    if (!s || typeof s !== 'object' || isCrashed) return;
-    s_buffer = s;
-
-    const now = performance.now();
-    const dt = (now - lastFrameTime) / 1000;
-    lastFrameTime = now;
-
-    frameCount++;
-    if (now - lastFpsTime >= 1000) {
-        const currentFps = Math.round((frameCount * 1000) / (now - lastFpsTime));
-        const telFps = document.getElementById('tel-fps');
-        if (telFps) telFps.innerText = `FPS: ${currentFps}`;
-        frameCount = 0;
-        lastFpsTime = now;
-    }
-
-    const vspeedFpm = (s.dz ? -s.dz : 0) * UNITS.M_TO_FT * 60;
-
-    if (s.altitude <= 8 && (vspeedFpm < -1200 || Math.abs(s.pitch) > 15 || Math.abs(s.roll) > 25)) {
-        triggerCrash(s.speed, vspeedFpm);
-        return;
-    }
-
-    const fmsCmd = fms.update(s);
-    let apCmds = null;
-    if (ap.modes.AP_MASTER) {
-        if (s.pitch < -10) ap.targets.altitude = Math.max(s.altitude + 2000, 10000);
-        apCmds = ap.update(s, fmsCmd, dt);
-    }
-
-    let finalControls = { ...keyStateControls };
-
-    if (SIM_CONFIG.currentLevel === 'junior') {
-        const rollRad = THREE.MathUtils.degToRad(s.roll);
-        const liftComp = Math.abs(Math.sin(rollRad)) * 0.45;
-        finalControls.elevator += liftComp;
-        if (Math.abs(s.roll) > 28) finalControls.aileron = (s.roll > 0) ? -0.5 : 0.5;
-        if (s.altitude < 1500 && s.pitch < 0) {
-            finalControls.elevator = Math.max(finalControls.elevator, 0.6);
-        }
-    }
-
-    if (apCmds && ap.modes.AP_MASTER) {
-        if (Math.abs(keyStateControls.elevator) < SIM_CONFIG.AUTOPILOT.MANUAL_DEADZONE) finalControls.elevator = apCmds.elevator;
-        if (Math.abs(keyStateControls.aileron) < SIM_CONFIG.AUTOPILOT.MANUAL_DEADZONE) finalControls.aileron = apCmds.aileron;
-        if (keyStateControls.isManualThrottleInput) {
-            ap.modes.SPD_HOLD = false; ap.modes.VNAV = false;
-            keyStateControls.isManualThrottleInput = false;
-        } else {
-            finalControls.throttle = apCmds.throttle;
-            if (throttleSlider) throttleSlider.value = Math.round(finalControls.throttle * 100);
-            if (thrValText) thrValText.innerText = `${Math.round(finalControls.throttle * 100)}%`;
-        }
-    }
-
-    physicsWorker.postMessage({ type: 'controls', ...finalControls });
-
-    const eng1N1 = s.engineData ? s.engineData.eng1_N1 : 0;
-    oscilloscope.pushData(s.aoa, s.pitch, s.speed, s.gForce, eng1N1);
-    fdr.recordFrame(now / 1000, s, finalControls, ap);
-
-    hud.update({
-        speed: s.speed, altitude: s.altitude, mach: s.mach, aoa: s.aoa, gForce: s.gForce,
-        pitch: s.pitch, roll: s.roll, heading: s.heading, alpha: s.aoa, beta: s.beta,
-        vnav_active: ap.modes.VNAV, vdi_deviation: fmsCmd ? fmsCmd.vdi_deviation : 0,
-        activeWaypoint: fmsCmd ? fmsCmd.activeWaypointId : null,
-        waypointDistance: fmsCmd ? fmsCmd.distance : 0, vnav_phase: fmsCmd ? fmsCmd.vertical_phase : null
-    });
-
-    if (s.engineData) {
-        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-        setVal('eicas-n1-1', s.engineData.eng1_N1.toFixed(1));
-        setVal('eicas-egt-1', Math.round(s.engineData.eng1_EGT));
-        setVal('eicas-ff-1', Math.round(s.engineData.eng1_FF));
-        setVal('eicas-n1-2', s.engineData.eng2_N1.toFixed(1));
-        setVal('eicas-egt-2', Math.round(s.engineData.eng2_EGT));
-        setVal('eicas-ff-2', Math.round(s.engineData.eng2_FF));
-    }
-
-    sound.update(finalControls.throttle, s.speed, s.altitude, vspeedFpm, s.aoa, s.altitude <= 5);
-
-    const distToRwy = Math.hypot(s.x, s.y - 350);
-    if (distToRwy > 100 && s.y < 350) {
-        const currentGlideAngle = Math.atan2(s.altitude * 0.3048, distToRwy) * (180 / Math.PI);
-        papiSprites[0].material = (currentGlideAngle > 3.5) ? lightSpriteMatWhite : lightSpriteMatRed;
-        papiSprites[1].material = (currentGlideAngle > 3.2) ? lightSpriteMatWhite : lightSpriteMatRed;
-        papiSprites[2].material = (currentGlideAngle > 2.8) ? lightSpriteMatWhite : lightSpriteMatRed;
-        papiSprites[3].material = (currentGlideAngle > 2.5) ? lightSpriteMatWhite : lightSpriteMatRed;
-    }
-
-    cloudOffset += dt * 0.002;
-    cloudTex1.offset.set(cloudOffset * 1.5, cloudOffset * 0.8);
-    cloudTex2.offset.set(cloudOffset * 0.9, cloudOffset * 0.5);
-
-    const planeAltitudeM = s.altMeters !== undefined ? s.altMeters : s.altitude * UNITS.FT_TO_M;
-    const posX = s.x, posY = Math.max(2.4, planeAltitudeM + 2.4), posZ = s.y;
-
-    camera.position.set(posX, posY, posZ);
-    camera.rotation.order = 'YXZ';
-    camera.rotation.y = THREE.MathUtils.degToRad(-s.heading);
-    camera.rotation.x = THREE.MathUtils.degToRad(s.pitch);
-    camera.rotation.z = THREE.MathUtils.degToRad(-s.roll);
-}
-
-let cloudOffset = 0;
-let frameCount = 0;
-let lastFpsTime = performance.now();
-
-function animate() {
-    requestAnimationFrame(animate);
-    oscilloscope.render();
-    renderer.render(scene, camera);
-}
-
-function handleResize() {
-    const width = window.innerWidth;
-    const height = window.innerHeight;
-    camera.aspect = width / height;
-    camera.updateProjectionMatrix();
-    renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    hud.resize();
-}
-
-window.addEventListener('resize', handleResize);
-window.addEventListener('orientationchange', () => {
-    setTimeout(handleResize, 150);
-});
+    <div class="logo-box">
+        <h1 id="ui-title">J.A.R. 衝上雲霄</h1>
+        <h3 id="ui-subtitle" class="subtitle">PWA 飛行模擬器</h3>
+    </div>
+
+    <div class="setup-grid">
+        <div class="setup-card">
+            <span id="ui-mode-label" class="setup-title">模擬級別</span>
+            <div class="opt-group" id="group-level">
+                <button class="opt-btn active" data-val="junior" id="opt-junior">學員</button>
+                <button class="opt-btn" data-val="advanced" id="opt-advanced">進階</button>
+                <button class="opt-btn" data-val="captain" id="opt-captain">機長</button>
+            </div>
+        </div>
+
+        <div class="setup-card">
+            <span id="ui-weather-label" class="setup-title">天氣環境</span>
+            <div class="opt-group" id="group-weather">
+                <button class="opt-btn active" data-val="day" id="opt-day">晴空</button>
+                <button class="opt-btn" data-val="sunset" id="opt-sunset">黃昏</button>
+                <button class="opt-btn" data-val="night" id="opt-night">夜間</button>
+                <button class="opt-btn" data-val="storm" id="opt-storm">暴風雨</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls-box">
+        <button id="start-btn" class="glow-btn">進入駕駛艙 / 啟動引擎</button>
+    </div>
+</div>
+
+<!-- 模擬主介面 -->
+<div id="sim-interface">
+    <div id="canvas-container"></div>
+
+    <!-- 🏠 左上角：返回選單按鈕 -->
+    <button id="btn-return-menu">🏠 <span id="lbl-menu-return">選單</span></button>
+
+    <!-- 頂部中央：狀態條 -->
+    <div id="telemetry-bar">
+        <span id="tel-fps" style="color:#00ff88; font-weight:bold;">FPS: 120</span>
+        <span id="tel-mode">學員</span>
+        <span id="tel-env">晴空</span>
+        <span id="tel-wind">080°/12k</span>
+    </div>
+
+    <!-- 📊 右上角：儀表/故障按鈕 -->
+    <button id="top-menu-btn"><span id="lbl-top-menu">📊 儀表 / 故障 ▼</span></button>
+
+    <!-- 浮動抽屜選單 (右側滑出) -->
+    <div id="drawer-panel">
+        <div id="eicas-display">
+            <div class="eicas-title" id="ui-eicas-title">發動機與燃油 (EICAS)</div>
+            <div class="eicas-grid">
+                <div class="eicas-col">
+                    <span class="eng-name" id="ui-eng1-lbl">左發 1 (L)</span>
+                    <div>N1: <span id="eicas-n1-1">68.0</span>%</div>
+                    <div>EGT: <span id="eicas-egt-1">773</span>°C</div>
+                    <div>FF: <span id="eicas-ff-1">1400</span> kg/h</div>
+                </div>
+                <div class="eicas-col">
+                    <span class="eng-name" id="ui-eng2-lbl">右發 2 (R)</span>
+                    <div>N1: <span id="eicas-n1-2">68.0</span>%</div>
+                    <div>EGT: <span id="eicas-egt-2">773</span>°C</div>
+                    <div>FF: <span id="eicas-ff-2">1400</span> kg/h</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="ios-panel">
+            <button id="btn-fdr-export" class="ios-btn fdr-btn">📥 導出 FDR 黑匣子 (CSV)</button>
+            <button id="btn-fault-eng1" class="ios-btn fault-btn">⚠️ 左發停車 (ENG 1 FAIL)</button>
+            <button id="btn-fault-eng2" class="ios-btn fault-btn">⚠️ 右發停車 (ENG 2 FAIL)</button>
+        </div>
+
+        <div id="oscilloscope-container">
+            <div class="scope-header">
+                <span id="scope-mode-label">AERO</span>
+                <button id="btn-scope-mode" class="scope-toggle-btn"><span id="lbl-scope-toggle">切換通道</span></button>
+            </div>
+            <canvas id="oscilloscope-canvas" width="170" height="70"></canvas>
+        </div>
+    </div>
+
+    <!-- 底部 MCP 面板 -->
+    <div class="cockpit-glare-shield">
+        <div class="mcp-panel">
+            <button id="btn-ap" class="mcp-btn">A/P</button>
+            <button id="btn-lnav" class="mcp-btn">LNAV</button>
+            <button id="btn-vnav" class="mcp-btn">VNAV</button>
+            
+            <div class="mcp-group">
+                <span id="lbl-spd">SPD</span>
+                <button class="mcp-step-btn" id="spd-dec">-</button>
+                <span id="mcp-spd-val" class="mcp-val">250</span>
+                <button class="mcp-step-btn" id="spd-inc">+</button>
+            </div>
+
+            <div class="mcp-group">
+                <span id="lbl-hdg">HDG</span>
+                <button class="mcp-step-btn" id="hdg-dec">-</button>
+                <span id="mcp-hdg-val" class="mcp-val">360</span>
+                <button class="mcp-step-btn" id="hdg-inc">+</button>
+            </div>
+
+            <div class="mcp-group">
+                <span id="lbl-alt">ALT</span>
+                <button class="mcp-step-btn" id="alt-dec">-</button>
+                <span id="mcp-alt-val" class="mcp-val">10000</span>
+                <button class="mcp-step-btn" id="alt-inc">+</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 觸控操控層 -->
+    <div id="touch-controls">
+        <div id="left-controls">
+            <div class="throttle-container">
+                <span class="ctrl-label" id="ui-thr-label">油門</span>
+                <input type="range" id="touch-throttle" min="0" max="100" value="60" orient="vertical">
+                <span id="thr-val-text">60%</span>
+            </div>
+            
+            <div class="rudder-bar">
+                <button id="btn-rud-left" class="pedal-btn">◀</button>
+                <button id="btn-brake" class="pedal-btn brake-btn">BRK</button>
+                <button id="btn-rud-right" class="pedal-btn">▶</button>
+            </div>
+        </div>
+
+        <div id="right-controls">
+            <div id="virtual-stick-zone">
+                <div id="virtual-stick-knob"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 墜毀結算彈窗 -->
+    <div id="crash-modal" class="modal-hidden">
+        <div class="crash-card">
+            <div class="crash-icon">⚠️</div>
+            <h2 id="crash-title">飛機墜毀 / CRASH</h2>
+            <p id="crash-desc">客機以過大垂直速度或俯角觸地。</p>
+            <div class="crash-stats">
+                <div><span id="lbl-crash-spd">觸地空速:</span> <b id="crash-spd-val">0 kt</b></div>
+                <div><span id="lbl-crash-vs">垂直下沉率:</span> <b id="crash-vs-val">0 fpm</b></div>
+            </div>
+            <button id="btn-respawn" class="glow-btn respawn-btn">🔄 重新起飛 (RESPAWN)</button>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module" src="main.js"></script>
+
+</body>
+</html>
