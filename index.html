@@ -23,7 +23,7 @@
     
     <div class="logo-box">
         <h1 id="ui-title">J.A.R. 衝上雲霄 Pro</h1>
-        <h3 id="ui-subtitle" class="subtitle">科研級 Web 飛行模擬認證平台 (v2.6)</h3>
+        <h3 id="ui-subtitle" class="subtitle">科研級 Web 飛行模擬認證平台 (v3.2)</h3>
     </div>
 
     <!-- 難度與環境選擇器 -->
@@ -63,6 +63,41 @@
         <span id="tel-env">ENV: DAY CLEAR</span>
         <span id="tel-wind">WIND: 080° / 12kt</span>
         <span id="tel-qbar">QBAR: 8.2 kPa</span>
+    </div>
+
+    <!-- 左上角 EICAS 發動機即時監控小儀表 -->
+    <div id="eicas-display">
+        <div class="eicas-title">ENGINE & FUEL (EICAS)</div>
+        <div class="eicas-grid">
+            <div class="eicas-col">
+                <span class="eng-name">ENG 1 (L)</span>
+                <div class="eng-stat">N1: <span id="eicas-n1-1">20.0</span>%</div>
+                <div class="eng-stat">EGT: <span id="eicas-egt-1">420</span>°C</div>
+                <div class="eng-stat">FF: <span id="eicas-ff-1">380</span> kg/h</div>
+            </div>
+            <div class="eicas-col">
+                <span class="eng-name">ENG 2 (R)</span>
+                <div class="eng-stat">N1: <span id="eicas-n1-2">20.0</span>%</div>
+                <div class="eng-stat">EGT: <span id="eicas-egt-2">420</span>°C</div>
+                <div class="eng-stat">FF: <span id="eicas-ff-2">380</span> kg/h</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右上角教官故障台 (IOS) 與 FDR 黑匣子導出 -->
+    <div id="ios-panel">
+        <button id="btn-fdr-export" class="ios-btn fdr-btn">📥 導出 FDR 黑匣子 (CSV)</button>
+        <button id="btn-fault-eng1" class="ios-btn fault-btn">⚠️ 左發停車 (ENG 1 FAIL)</button>
+        <button id="btn-fault-eng2" class="ios-btn fault-btn">⚠️ 右發停車 (ENG 2 FAIL)</button>
+    </div>
+
+    <!-- 即時遙測示波器 (可收起/展開) -->
+    <div id="oscilloscope-container">
+        <div class="scope-header">
+            <span>REAL-TIME OSCILLOSCOPE</span>
+            <button id="btn-toggle-scope" class="scope-toggle-btn">收起/展開</button>
+        </div>
+        <canvas id="oscilloscope-canvas"></canvas>
     </div>
 
     <!-- 駕駛艙遮罩與 MCP 面板 -->
