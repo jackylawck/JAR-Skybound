@@ -8,7 +8,6 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a2a4a">
 
-    <!-- 🛡️ 企業級強化 CSP -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline' blob:;
@@ -27,46 +26,10 @@
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)">
 
-    <meta name="google-site-verification" content="JZ5UohX-CcP_fQV0_DI9VadkKY4ZoTTkUifL88-fIcY" />
-
     <title>J.A.R. 衝上雲霄 | J.A.R. Skybound</title>
-    <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator featuring NASA CRM aerodynamics, dual turbofan dynamics, Pacejka ground model, and ARINC-717 FDR telemetry.">
-    <meta name="keywords" content="J.A.R., Joint Applied Research, 聯合應用科學探索, Skybound, 衝上雲霄, Flight Simulator, Three.js, WebGL, 6-DoF, NASA CRM, ARINC 717, PWA">
-    <meta name="author" content="Jacky Law">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://jackylawck.github.io/JAR-Skybound/">
-
-    <meta property="og:type" content="website">
-    <meta property="og:url" content="https://jackylawck.github.io/JAR-Skybound/">
-    <meta property="og:title" content="J.A.R. 衝上雲霄 | J.A.R. Skybound">
-    <meta property="og:description" content="高保真 WebGL 6-DoF 飛行模擬沙盒，支援 NASA CRM 風洞氣動模型、雙發渦扇動力與 ARINC-717 黑匣子數據記錄。">
-    <meta property="og:image" content="https://jackylawck.github.io/JAR-Skybound/jarSkybound512icon.png">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:url" content="https://jackylawck.github.io/JAR-Skybound/">
-    <meta name="twitter:title" content="J.A.R. 衝上雲霄 | J.A.R. Skybound">
-    <meta name="twitter:description" content="Scientific-grade Web 6-DoF flight simulator with real-time HUD, NASA CRM aerodynamics, and telemetry analysis.">
-    <meta name="twitter:image" content="https://jackylawck.github.io/JAR-Skybound/jarSkybound512icon.png">
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebApplication",
-      "name": "J.A.R. Skybound",
-      "alternateName": "J.A.R. 衝上雲霄 - 聯合應用科學探索",
-      "url": "https://jackylawck.github.io/JAR-Skybound/",
-      "description": "An open-source, high-fidelity WebGL 6-DoF flight simulator featuring NASA CRM aerodynamics, dual-turbofan engine dynamics, and real-time flight telemetry recording.",
-      "applicationCategory": "SimulationApplication, EducationalApplication",
-      "operatingSystem": "All"
-    }
-    </script>
-
+    <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator.">
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" type="image/png" sizes="192x192" href="jarSkybound192icon.png">
-    <link rel="icon" type="image/png" sizes="512x512" href="jarSkybound512icon.png">
-    <link rel="apple-touch-icon" href="jarSkybound192icon.png">
-    <meta name="msapplication-TileColor" content="#1a2a4a">
-
+    <link rel="icon" type="image/png" href="jarSkybound192icon.png">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -85,18 +48,18 @@
         <div class="setup-card">
             <span id="ui-mode-label" class="setup-title">模擬級別</span>
             <div class="opt-group" id="group-level">
-                <button class="opt-btn" data-val="junior">學員 / 兒童</button>
-                <button class="opt-btn active" data-val="advanced">進階飛手</button>
-                <button class="opt-btn" data-val="captain">機長 / 專業</button>
+                <button class="opt-btn" data-val="junior">學員</button>
+                <button class="opt-btn active" data-val="advanced">進階</button>
+                <button class="opt-btn" data-val="captain">機長</button>
             </div>
         </div>
 
         <div class="setup-card">
             <span id="ui-weather-label" class="setup-title">天氣環境</span>
             <div class="opt-group" id="group-weather">
-                <button class="opt-btn active" data-val="day">晴空 (日間)</button>
-                <button class="opt-btn" data-val="sunset">黃昏日落</button>
-                <button class="opt-btn" data-val="night">夜間儀表</button>
+                <button class="opt-btn active" data-val="day">晴空</button>
+                <button class="opt-btn" data-val="sunset">黃昏</button>
+                <button class="opt-btn" data-val="night">夜間</button>
                 <button class="opt-btn" data-val="storm">暴風雨</button>
             </div>
         </div>
@@ -110,88 +73,90 @@
 <div id="sim-interface">
     <div id="canvas-container"></div>
 
-    <!-- 頂部即時環境與性能狀態條 -->
+    <!-- 頂部極簡狀態條 -->
     <div id="telemetry-bar">
-        <span id="tel-fps" style="color:#00ff88; font-weight:bold;">FPS: 60</span>
-        <span id="tel-mode">LEVEL: ADVANCED</span>
-        <span id="tel-env">ENV: DAY CLEAR</span>
-        <span id="tel-wind">WIND: 080° / 12kt</span>
-        <span id="tel-qbar">QBAR: 8.2 kPa</span>
+        <span id="tel-fps" style="color:#00ff88; font-weight:bold;">FPS: 120</span>
+        <span id="tel-mode">ADVANCED</span>
+        <span id="tel-env">DAY</span>
+        <span id="tel-wind">080°/12k</span>
     </div>
 
-    <div id="eicas-display">
-        <div class="eicas-title">ENGINE & FUEL (EICAS)</div>
-        <div class="eicas-grid">
-            <div class="eicas-col">
-                <span class="eng-name">ENG 1 (L)</span>
-                <div class="eng-stat">N1: <span id="eicas-n1-1">20.0</span>%</div>
-                <div class="eng-stat">EGT: <span id="eicas-egt-1">420</span>°C</div>
-                <div class="eng-stat">FF: <span id="eicas-ff-1">380</span> kg/h</div>
-            </div>
-            <div class="eicas-col">
-                <span class="eng-name">ENG 2 (R)</span>
-                <div class="eng-stat">N1: <span id="eicas-n1-2">20.0</span>%</div>
-                <div class="eng-stat">EGT: <span id="eicas-egt-2">420</span>°C</div>
-                <div class="eng-stat">FF: <span id="eicas-ff-2">380</span> kg/h</div>
+    <!-- ⚙️ 右上角儀表折疊按鈕 -->
+    <button id="top-menu-btn">📊 儀表 / 故障 ▼</button>
+
+    <!-- 浮動抽屜選單（預設折疊，點擊展開） -->
+    <div id="drawer-panel" class="collapsed">
+        <!-- EICAS -->
+        <div id="eicas-display">
+            <div class="eicas-title">ENGINE & FUEL (EICAS)</div>
+            <div class="eicas-grid">
+                <div class="eicas-col">
+                    <span class="eng-name">ENG 1 (L)</span>
+                    <div>N1: <span id="eicas-n1-1">68.0</span>%</div>
+                    <div>EGT: <span id="eicas-egt-1">773</span>°C</div>
+                    <div>FF: <span id="eicas-ff-1">1400</span> kg/h</div>
+                </div>
+                <div class="eicas-col">
+                    <span class="eng-name">ENG 2 (R)</span>
+                    <div>N1: <span id="eicas-n1-2">68.0</span>%</div>
+                    <div>EGT: <span id="eicas-egt-2">773</span>°C</div>
+                    <div>FF: <span id="eicas-ff-2">1400</span> kg/h</div>
+                </div>
             </div>
         </div>
-    </div>
 
-    <div id="ios-panel">
-        <button id="btn-fdr-export" class="ios-btn fdr-btn">📥 導出 FDR 黑匣子 (CSV)</button>
-        <button id="btn-fault-eng1" class="ios-btn fault-btn">⚠️ 左發停車 (ENG 1 FAIL)</button>
-        <button id="btn-fault-eng2" class="ios-btn fault-btn">⚠️ 右發停車 (ENG 2 FAIL)</button>
-    </div>
+        <!-- IOS 教官台 -->
+        <div id="ios-panel">
+            <button id="btn-fdr-export" class="ios-btn fdr-btn">📥 導出 FDR 黑匣子 (CSV)</button>
+            <button id="btn-fault-eng1" class="ios-btn fault-btn">⚠️ 左發停車 (ENG 1 FAIL)</button>
+            <button id="btn-fault-eng2" class="ios-btn fault-btn">⚠️ 右發停車 (ENG 2 FAIL)</button>
+        </div>
 
-    <div id="oscilloscope-container">
-        <div class="scope-header">
-            <span id="scope-mode-label">AERO (AoA/Pitch/G)</span>
-            <div class="scope-btns">
+        <!-- 示波器 -->
+        <div id="oscilloscope-container">
+            <div class="scope-header">
+                <span id="scope-mode-label">AERO</span>
                 <button id="btn-scope-mode" class="scope-toggle-btn">切換通道</button>
-                <button id="btn-toggle-scope" class="scope-toggle-btn">收起/展開</button>
             </div>
+            <canvas id="oscilloscope-canvas" width="180" height="75"></canvas>
         </div>
-        <canvas id="oscilloscope-canvas" width="240" height="110"></canvas>
     </div>
 
-    <div id="cockpit-overlay">
-        <div class="cockpit-frame-left"></div>
-        <div class="cockpit-frame-right"></div>
-        
-        <div class="cockpit-glare-shield">
-            <div class="mcp-panel">
-                <button id="btn-ap" class="mcp-btn">A/P</button>
-                <button id="btn-lnav" class="mcp-btn">LNAV</button>
-                <button id="btn-vnav" class="mcp-btn">VNAV</button>
-                
-                <div class="mcp-group">
-                    <span class="mcp-label">SPD</span>
-                    <button class="mcp-step-btn" id="spd-dec">-</button>
-                    <span id="mcp-spd-val" class="mcp-val">250</span>
-                    <button class="mcp-step-btn" id="spd-inc">+</button>
-                </div>
+    <!-- 底部 MCP 面板 -->
+    <div class="cockpit-glare-shield">
+        <div class="mcp-panel">
+            <button id="btn-ap" class="mcp-btn">A/P</button>
+            <button id="btn-lnav" class="mcp-btn">LNAV</button>
+            <button id="btn-vnav" class="mcp-btn">VNAV</button>
+            
+            <div class="mcp-group">
+                <span>SPD</span>
+                <button class="mcp-step-btn" id="spd-dec">-</button>
+                <span id="mcp-spd-val" class="mcp-val">250</span>
+                <button class="mcp-step-btn" id="spd-inc">+</button>
+            </div>
 
-                <div class="mcp-group">
-                    <span class="mcp-label">HDG</span>
-                    <button class="mcp-step-btn" id="hdg-dec">-</button>
-                    <span id="mcp-hdg-val" class="mcp-val">360</span>
-                    <button class="mcp-step-btn" id="hdg-inc">+</button>
-                </div>
+            <div class="mcp-group">
+                <span>HDG</span>
+                <button class="mcp-step-btn" id="hdg-dec">-</button>
+                <span id="mcp-hdg-val" class="mcp-val">360</span>
+                <button class="mcp-step-btn" id="hdg-inc">+</button>
+            </div>
 
-                <div class="mcp-group">
-                    <span class="mcp-label">ALT</span>
-                    <button class="mcp-step-btn" id="alt-dec">-</button>
-                    <span id="mcp-alt-val" class="mcp-val">10000</span>
-                    <button class="mcp-step-btn" id="alt-inc">+</button>
-                </div>
+            <div class="mcp-group">
+                <span>ALT</span>
+                <button class="mcp-step-btn" id="alt-dec">-</button>
+                <span id="mcp-alt-val" class="mcp-val">10000</span>
+                <button class="mcp-step-btn" id="alt-inc">+</button>
             </div>
         </div>
     </div>
 
+    <!-- 觸控操作層 -->
     <div id="touch-controls">
         <div id="left-controls">
             <div class="throttle-container">
-                <span id="ui-thr-label" class="ctrl-label">油門</span>
+                <span class="ctrl-label">油門</span>
                 <input type="range" id="touch-throttle" min="0" max="100" value="60" orient="vertical">
                 <span id="thr-val-text">60%</span>
             </div>
@@ -213,6 +178,14 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script type="module" src="main.js"></script>
+
+<!-- 抽屜選單展開/收起腳本 -->
+<script>
+    document.getElementById('top-menu-btn')?.addEventListener('click', () => {
+        const drawer = document.getElementById('drawer-panel');
+        if (drawer) drawer.classList.toggle('collapsed');
+    });
+</script>
 
 </body>
 </html>
