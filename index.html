@@ -30,7 +30,7 @@
     <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="jarSkybound192icon.png">
-    <link rel="stylesheet" href="style.css?v=3.6.8">
+    <link rel="stylesheet" href="style.css?v=3.6.9">
 </head>
 <body>
 
@@ -83,8 +83,11 @@
         <span id="tel-wind">080°/12k</span>
     </div>
 
-    <!-- ⚙️ 右上角儀表折疊按鈕 -->
-    <button id="top-menu-btn">📊 儀表 / 故障 ▼</button>
+    <!-- 頂部右側快捷按鈕群 -->
+    <div id="top-btn-group">
+        <button id="btn-return-menu">🏠 <span id="lbl-menu-return">選單</span></button>
+        <button id="top-menu-btn"><span id="lbl-top-menu">📊 儀表 / 故障 ▼</span></button>
+    </div>
 
     <!-- 浮動抽屜選單 -->
     <div id="drawer-panel">
@@ -174,7 +177,7 @@
         </div>
     </div>
 
-    <!-- 💥 撞地墜毀結算彈窗 (Crash Dialog) -->
+    <!-- 墜毀結算彈窗 -->
     <div id="crash-modal" class="modal-hidden">
         <div class="crash-card">
             <div class="crash-icon">⚠️</div>
@@ -200,7 +203,7 @@
         drawer?.classList.toggle('open');
     });
     document.addEventListener('click', (e) => {
-        if (!drawer?.contains(e.target) && e.target !== menuBtn) {
+        if (!drawer?.contains(e.target) && !menuBtn?.contains(e.target)) {
             drawer?.classList.remove('open');
         }
     });
