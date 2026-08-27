@@ -23,15 +23,12 @@
         upgrade-insecure-requests;
     ">
 
-    <!-- 🛡️ 跨來源隔離與隱私安全 Meta -->
     <meta http-equiv="X-Content-Type-Options" content="nosniff">
     <meta http-equiv="Referrer-Policy" content="strict-origin-when-cross-origin">
     <meta http-equiv="Permissions-Policy" content="camera=(), microphone=(), geolocation=(), payment=(), usb=(), accelerometer=(self), gyroscope=(self)">
 
-    <!-- 🔍 Google 網站驗證 -->
     <meta name="google-site-verification" content="JZ5UohX-CcP_fQV0_DI9VadkKY4ZoTTkUifL88-fIcY" />
 
-    <!-- 🌐 雙語全球 SEO 標籤 -->
     <title>J.A.R. 衝上雲霄 | J.A.R. Skybound</title>
     <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator featuring NASA CRM aerodynamics, dual turbofan dynamics, Pacejka ground model, and ARINC-717 FDR telemetry.">
     <meta name="keywords" content="J.A.R., Joint Applied Research, 聯合應用科學探索, Skybound, 衝上雲霄, Flight Simulator, Three.js, WebGL, 6-DoF, NASA CRM, ARINC 717, PWA">
@@ -39,21 +36,18 @@
     <meta name="robots" content="index, follow">
     <link rel="canonical" href="https://jackylawck.github.io/JAR-Skybound/">
 
-    <!-- 📱 Open Graph 社群分享卡片 -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://jackylawck.github.io/JAR-Skybound/">
     <meta property="og:title" content="J.A.R. 衝上雲霄 | J.A.R. Skybound">
     <meta property="og:description" content="高保真 WebGL 6-DoF 飛行模擬沙盒，支援 NASA CRM 風洞氣動模型、雙發渦扇動力與 ARINC-717 黑匣子數據記錄。">
     <meta property="og:image" content="https://jackylawck.github.io/JAR-Skybound/jarSkybound512icon.png">
 
-    <!-- 🐦 Twitter Card -->
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:url" content="https://jackylawck.github.io/JAR-Skybound/">
     <meta name="twitter:title" content="J.A.R. 衝上雲霄 | J.A.R. Skybound">
     <meta name="twitter:description" content="Scientific-grade Web 6-DoF flight simulator with real-time HUD, NASA CRM aerodynamics, and telemetry analysis.">
     <meta name="twitter:image" content="https://jackylawck.github.io/JAR-Skybound/jarSkybound512icon.png">
 
-    <!-- 🔍 Google 結構化資料 (Schema.org) -->
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -67,7 +61,6 @@
     }
     </script>
 
-    <!-- 📲 完整跨平台 PWA 與 Favicon -->
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="jarSkybound192icon.png">
     <link rel="icon" type="image/png" sizes="512x512" href="jarSkybound512icon.png">
@@ -78,7 +71,6 @@
 </head>
 <body>
 
-<!-- 啟動與難度配置面板 -->
 <div id="start-screen">
     <div class="header-bar">
         <button id="btn-lang" class="pill-btn">English</button>
@@ -89,7 +81,6 @@
         <h3 id="ui-subtitle" class="subtitle">PWA 飛行模擬器</h3>
     </div>
 
-    <!-- 難度與環境選擇器 -->
     <div class="setup-grid">
         <div class="setup-card">
             <span id="ui-mode-label" class="setup-title">模擬級別</span>
@@ -116,19 +107,18 @@
     </div>
 </div>
 
-<!-- 主模擬器視圖 -->
 <div id="sim-interface">
     <div id="canvas-container"></div>
 
-    <!-- 頂部即時環境狀態條 -->
+    <!-- 頂部即時環境與性能狀態條 -->
     <div id="telemetry-bar">
+        <span id="tel-fps" style="color:#00ff88; font-weight:bold;">FPS: 60</span>
         <span id="tel-mode">LEVEL: ADVANCED</span>
         <span id="tel-env">ENV: DAY CLEAR</span>
         <span id="tel-wind">WIND: 080° / 12kt</span>
         <span id="tel-qbar">QBAR: 8.2 kPa</span>
     </div>
 
-    <!-- 左上角 EICAS 發動機即時監控小儀表 -->
     <div id="eicas-display">
         <div class="eicas-title">ENGINE & FUEL (EICAS)</div>
         <div class="eicas-grid">
@@ -147,14 +137,12 @@
         </div>
     </div>
 
-    <!-- 右上角教官故障台 (IOS) 與 FDR 黑匣子 -->
     <div id="ios-panel">
         <button id="btn-fdr-export" class="ios-btn fdr-btn">📥 導出 FDR 黑匣子 (CSV)</button>
         <button id="btn-fault-eng1" class="ios-btn fault-btn">⚠️ 左發停車 (ENG 1 FAIL)</button>
         <button id="btn-fault-eng2" class="ios-btn fault-btn">⚠️ 右發停車 (ENG 2 FAIL)</button>
     </div>
 
-    <!-- 即時遙測示波器 (含模式切換) -->
     <div id="oscilloscope-container">
         <div class="scope-header">
             <span id="scope-mode-label">AERO (AoA/Pitch/G)</span>
@@ -166,7 +154,6 @@
         <canvas id="oscilloscope-canvas" width="240" height="110"></canvas>
     </div>
 
-    <!-- 駕駛艙遮罩與 MCP 面板 -->
     <div id="cockpit-overlay">
         <div class="cockpit-frame-left"></div>
         <div class="cockpit-frame-right"></div>
@@ -201,7 +188,6 @@
         </div>
     </div>
 
-    <!-- 手機觸控操控層 -->
     <div id="touch-controls">
         <div id="left-controls">
             <div class="throttle-container">
