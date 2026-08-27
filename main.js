@@ -253,14 +253,19 @@ function applyWeather(mode) {
 applyWeather('day');
 
 // 4. HUD 與示波器掛載
-const hudCanvas = document.createElement('canvas');
-hudCanvas.id = 'hud-canvas';
-hudCanvas.style.position = 'absolute';
-hudCanvas.style.top = '0'; hudCanvas.style.left = '0';
-hudCanvas.style.width = '100vw'; hudCanvas.style.height = '100vh';
-hudCanvas.style.pointerEvents = 'none';
-hudCanvas.style.zIndex = '15';
-document.getElementById('sim-interface')?.appendChild(hudCanvas);
+let hudCanvas = document.getElementById('hud-canvas');
+if (!hudCanvas) {
+    hudCanvas = document.createElement('canvas');
+    hudCanvas.id = 'hud-canvas';
+    hudCanvas.style.position = 'absolute';
+    hudCanvas.style.top = '0';
+    hudCanvas.style.left = '0';
+    hudCanvas.style.width = '100vw';
+    hudCanvas.style.height = '100vh';
+    hudCanvas.style.pointerEvents = 'none';
+    hudCanvas.style.zIndex = '12';
+    document.getElementById('sim-interface')?.appendChild(hudCanvas);
+}
 const hud = new HUD(hudCanvas);
 
 const oscCanvas = document.getElementById('oscilloscope-canvas');
