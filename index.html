@@ -30,11 +30,11 @@
     <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="jarSkybound192icon.png">
-    <link rel="stylesheet" href="style.css?v=3.7.2">
+    <link rel="stylesheet" href="style.css?v=3.7.3">
 </head>
 <body>
 
-<!-- 啟動選單 (Start Screen) -->
+<!-- 啟動與模式選擇畫面 (Start Screen) -->
 <div id="start-screen">
     <div class="header-bar">
         <button id="btn-lang" class="pill-btn">English</button>
@@ -76,7 +76,7 @@
     <div id="canvas-container"></div>
 
     <!-- 🏠 左上角：返回選單按鈕 -->
-    <button id="btn-return-menu">🏠 <span id="lbl-menu-return">選單</span></button>
+    <button id="btn-return-menu" onclick="window.returnToStartScreen(event)" ontouchend="window.returnToStartScreen(event)">🏠 <span id="lbl-menu-return">選單</span></button>
 
     <!-- 頂部中央：狀態條 -->
     <div id="telemetry-bar">
@@ -86,11 +86,16 @@
         <span id="tel-wind">080°/12k</span>
     </div>
 
-    <!-- 📊 右上角：儀表/故障按鈕 -->
-    <button id="top-menu-btn"><span id="lbl-top-menu">📊 儀表 / 故障 ▼</span></button>
+    <!-- 📊 右上角：儀表/故障按鈕 (直連 toggle 函數) -->
+    <button id="top-menu-btn" onclick="window.toggleAvionicsDrawer(event)" ontouchend="window.toggleAvionicsDrawer(event)"><span id="lbl-top-menu">📊 儀表 / 故障 ▼</span></button>
 
-    <!-- 浮動抽屜選單 (右側滑出) -->
-    <div id="drawer-panel">
+    <!-- 浮動抽屜選單 -->
+    <div id="drawer-panel" style="display: none;">
+        <div class="drawer-top-header">
+            <span class="drawer-header-title" id="ui-drawer-title">AVIONICS & IOS</span>
+            <button class="drawer-close-btn" onclick="window.toggleAvionicsDrawer(event)" ontouchend="window.toggleAvionicsDrawer(event)">✕</button>
+        </div>
+
         <div id="eicas-display">
             <div class="eicas-title" id="ui-eicas-title">發動機與燃油 (EICAS)</div>
             <div class="eicas-grid">
