@@ -30,11 +30,11 @@
     <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="jarSkybound192icon.png">
-    <link rel="stylesheet" href="style.css?v=3.6.9">
+    <link rel="stylesheet" href="style.css?v=3.7.0">
 </head>
 <body>
 
-<!-- 啟動選單 -->
+<!-- 啟動選單 (Start Screen) -->
 <div id="start-screen">
     <div class="header-bar">
         <button id="btn-lang" class="pill-btn">English</button>
@@ -75,7 +75,10 @@
 <div id="sim-interface">
     <div id="canvas-container"></div>
 
-    <!-- 頂部極簡狀態條 -->
+    <!-- 🏠 左上角：返回選單 -->
+    <button id="btn-return-menu">🏠 <span id="lbl-menu-return">選單</span></button>
+
+    <!-- 頂部中央：狀態條 -->
     <div id="telemetry-bar">
         <span id="tel-fps" style="color:#00ff88; font-weight:bold;">FPS: 120</span>
         <span id="tel-mode">學員</span>
@@ -83,13 +86,10 @@
         <span id="tel-wind">080°/12k</span>
     </div>
 
-    <!-- 頂部右側快捷按鈕群 -->
-    <div id="top-btn-group">
-        <button id="btn-return-menu">🏠 <span id="lbl-menu-return">選單</span></button>
-        <button id="top-menu-btn"><span id="lbl-top-menu">📊 儀表 / 故障 ▼</span></button>
-    </div>
+    <!-- 📊 右上角：儀表/故障選單 -->
+    <button id="top-menu-btn"><span id="lbl-top-menu">📊 儀表 / 故障 ▼</span></button>
 
-    <!-- 浮動抽屜選單 -->
+    <!-- 浮動抽屜選單 (右側滑出) -->
     <div id="drawer-panel">
         <div id="eicas-display">
             <div class="eicas-title" id="ui-eicas-title">發動機與燃油 (EICAS)</div>
@@ -196,15 +196,22 @@
 <script type="module" src="main.js"></script>
 
 <script>
+    // 💡 強化觸控事件綁定：使用 Pointer/Touch 雙重保險
     const menuBtn = document.getElementById('top-menu-btn');
     const drawer = document.getElementById('drawer-panel');
-    menuBtn?.addEventListener('click', (e) => {
+    
+    function toggleDrawer(e) {
+        e.preventDefault();
         e.stopPropagation();
         drawer?.classList.toggle('open');
-    });
-    document.addEventListener('click', (e) => {
-        if (!drawer?.contains(e.target) && !menuBtn?.contains(e.target)) {
-            drawer?.classList.remove('open');
+    }
+    
+    menuBtn?.addEventListener('pointerdown', toggleDrawer);
+    menuBtn?.addEventListener('click', (e) => e.stopPropagation());
+
+    document.addEventListener('pointerdown', (e) => {
+        if (drawer?.classList.contains('open') && !drawer.contains(e.target) && e.target !== menuBtn && !menuBtn.contains(e.target)) {
+            drawer.classList.remove('open');
         }
     });
 </script>
