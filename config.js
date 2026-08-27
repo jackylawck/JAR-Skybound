@@ -1,5 +1,5 @@
 // ============================================================
-// config.js - J.A.R. Skybound Pro 全域配置與字典 v3.3
+// config.js - J.A.R. Skybound 全域配置、單位制與多語言字典 v3.3
 // ============================================================
 
 // 全局標準物理常數與單位轉換器 (Units Normalizer)
@@ -20,7 +20,7 @@ export const SIM_CONFIG = {
     currentWeather: 'day',
     currentAeroModel: 'crm', // 'crm' | 'naca'
 
-    // 飛機基準參數
+    // 飛機基準幾何與極限參數
     AIRCRAFT: {
         MASS: 75000,
         WING_AREA: 129.15,
@@ -84,7 +84,7 @@ export const SIM_CONFIG = {
 
 export const I18N = {
     zh: {
-        title: "J.A.R. 衝上雲霄 Pro",
+        title: "J.A.R. 衝上雲霄",
         subtitle: "PWA 飛行模擬器",
         startBtn: "進入駕駛艙 / 啟動引擎",
         langBtn: "English",
@@ -98,7 +98,7 @@ export const I18N = {
         weather: { day: "晴空 (日間)", sunset: "黃昏日落", night: "夜間儀表", storm: "暴風雨" }
     },
     en: {
-        title: "J.A.R. Skybound Pro",
+        title: "J.A.R. Skybound",
         subtitle: "PWA Flight Simulator",
         startBtn: "ENTER COCKPIT / START ENGINE",
         langBtn: "中文",
