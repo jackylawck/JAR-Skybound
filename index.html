@@ -8,7 +8,6 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a2a4a">
 
-    <!-- 🛡️ 企業級強化 CSP -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline' blob:;
@@ -31,12 +30,11 @@
     <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="jarSkybound192icon.png">
-    
-    <!-- ⚡ 加入版本參數 ?v=3.6.3 強制手機瀏覽器更新 CSS 快取 -->
-    <link rel="stylesheet" href="style.css?v=3.6.3">
+    <link rel="stylesheet" href="style.css?v=3.6.8">
 </head>
 <body>
 
+<!-- 啟動選單 -->
 <div id="start-screen">
     <div class="header-bar">
         <button id="btn-lang" class="pill-btn">English</button>
@@ -51,19 +49,19 @@
         <div class="setup-card">
             <span id="ui-mode-label" class="setup-title">模擬級別</span>
             <div class="opt-group" id="group-level">
-                <button class="opt-btn" data-val="junior">學員</button>
-                <button class="opt-btn active" data-val="advanced">進階</button>
-                <button class="opt-btn" data-val="captain">機長</button>
+                <button class="opt-btn active" data-val="junior" id="opt-junior">學員</button>
+                <button class="opt-btn" data-val="advanced" id="opt-advanced">進階</button>
+                <button class="opt-btn" data-val="captain" id="opt-captain">機長</button>
             </div>
         </div>
 
         <div class="setup-card">
             <span id="ui-weather-label" class="setup-title">天氣環境</span>
             <div class="opt-group" id="group-weather">
-                <button class="opt-btn active" data-val="day">晴空</button>
-                <button class="opt-btn" data-val="sunset">黃昏</button>
-                <button class="opt-btn" data-val="night">夜間</button>
-                <button class="opt-btn" data-val="storm">暴風雨</button>
+                <button class="opt-btn active" data-val="day" id="opt-day">晴空</button>
+                <button class="opt-btn" data-val="sunset" id="opt-sunset">黃昏</button>
+                <button class="opt-btn" data-val="night" id="opt-night">夜間</button>
+                <button class="opt-btn" data-val="storm" id="opt-storm">暴風雨</button>
             </div>
         </div>
     </div>
@@ -73,33 +71,34 @@
     </div>
 </div>
 
+<!-- 模擬主介面 -->
 <div id="sim-interface">
     <div id="canvas-container"></div>
 
     <!-- 頂部極簡狀態條 -->
     <div id="telemetry-bar">
         <span id="tel-fps" style="color:#00ff88; font-weight:bold;">FPS: 120</span>
-        <span id="tel-mode">ADVANCED</span>
-        <span id="tel-env">DAY</span>
+        <span id="tel-mode">學員</span>
+        <span id="tel-env">晴空</span>
         <span id="tel-wind">080°/12k</span>
     </div>
 
     <!-- ⚙️ 右上角儀表折疊按鈕 -->
     <button id="top-menu-btn">📊 儀表 / 故障 ▼</button>
 
-    <!-- 浮動抽屜選單 (預設隱藏) -->
+    <!-- 浮動抽屜選單 -->
     <div id="drawer-panel">
         <div id="eicas-display">
-            <div class="eicas-title">ENGINE & FUEL (EICAS)</div>
+            <div class="eicas-title" id="ui-eicas-title">發動機與燃油 (EICAS)</div>
             <div class="eicas-grid">
                 <div class="eicas-col">
-                    <span class="eng-name">ENG 1 (L)</span>
+                    <span class="eng-name" id="ui-eng1-lbl">左發 1 (L)</span>
                     <div>N1: <span id="eicas-n1-1">68.0</span>%</div>
                     <div>EGT: <span id="eicas-egt-1">773</span>°C</div>
                     <div>FF: <span id="eicas-ff-1">1400</span> kg/h</div>
                 </div>
                 <div class="eicas-col">
-                    <span class="eng-name">ENG 2 (R)</span>
+                    <span class="eng-name" id="ui-eng2-lbl">右發 2 (R)</span>
                     <div>N1: <span id="eicas-n1-2">68.0</span>%</div>
                     <div>EGT: <span id="eicas-egt-2">773</span>°C</div>
                     <div>FF: <span id="eicas-ff-2">1400</span> kg/h</div>
@@ -118,7 +117,7 @@
                 <span id="scope-mode-label">AERO</span>
                 <button id="btn-scope-mode" class="scope-toggle-btn">切換通道</button>
             </div>
-            <canvas id="oscilloscope-canvas" width="190" height="80"></canvas>
+            <canvas id="oscilloscope-canvas" width="170" height="70"></canvas>
         </div>
     </div>
 
@@ -130,21 +129,21 @@
             <button id="btn-vnav" class="mcp-btn">VNAV</button>
             
             <div class="mcp-group">
-                <span>SPD</span>
+                <span id="lbl-spd">SPD</span>
                 <button class="mcp-step-btn" id="spd-dec">-</button>
                 <span id="mcp-spd-val" class="mcp-val">250</span>
                 <button class="mcp-step-btn" id="spd-inc">+</button>
             </div>
 
             <div class="mcp-group">
-                <span>HDG</span>
+                <span id="lbl-hdg">HDG</span>
                 <button class="mcp-step-btn" id="hdg-dec">-</button>
                 <span id="mcp-hdg-val" class="mcp-val">360</span>
                 <button class="mcp-step-btn" id="hdg-inc">+</button>
             </div>
 
             <div class="mcp-group">
-                <span>ALT</span>
+                <span id="lbl-alt">ALT</span>
                 <button class="mcp-step-btn" id="alt-dec">-</button>
                 <span id="mcp-alt-val" class="mcp-val">10000</span>
                 <button class="mcp-step-btn" id="alt-inc">+</button>
@@ -152,11 +151,11 @@
         </div>
     </div>
 
-    <!-- 觸控操作層 -->
+    <!-- 觸控操控層 -->
     <div id="touch-controls">
         <div id="left-controls">
             <div class="throttle-container">
-                <span class="ctrl-label">油門</span>
+                <span class="ctrl-label" id="ui-thr-label">油門</span>
                 <input type="range" id="touch-throttle" min="0" max="100" value="60" orient="vertical">
                 <span id="thr-val-text">60%</span>
             </div>
@@ -174,20 +173,32 @@
             </div>
         </div>
     </div>
+
+    <!-- 💥 撞地墜毀結算彈窗 (Crash Dialog) -->
+    <div id="crash-modal" class="modal-hidden">
+        <div class="crash-card">
+            <div class="crash-icon">⚠️</div>
+            <h2 id="crash-title">飛機墜毀 / CRASH</h2>
+            <p id="crash-desc">客機以過大垂直速度或俯角觸地。</p>
+            <div class="crash-stats">
+                <div><span id="lbl-crash-spd">觸地空速:</span> <b id="crash-spd-val">0 kt</b></div>
+                <div><span id="lbl-crash-vs">垂直下沉率:</span> <b id="crash-vs-val">0 fpm</b></div>
+            </div>
+            <button id="btn-respawn" class="glow-btn respawn-btn">🔄 重新起飛 (RESPAWN)</button>
+        </div>
+    </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script type="module" src="main.js"></script>
 
 <script>
-    // 點擊右上角按鈕切換展開/隱藏
     const menuBtn = document.getElementById('top-menu-btn');
     const drawer = document.getElementById('drawer-panel');
     menuBtn?.addEventListener('click', (e) => {
         e.stopPropagation();
         drawer?.classList.toggle('open');
     });
-    // 點擊畫面其他地方自動收起
     document.addEventListener('click', (e) => {
         if (!drawer?.contains(e.target) && e.target !== menuBtn) {
             drawer?.classList.remove('open');
