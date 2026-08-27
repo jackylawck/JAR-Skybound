@@ -1,21 +1,87 @@
 // ============================================================
-// config.js - J.A.R. Skybound Pro 全域性能與調諧參數表
+// config.js - 全域設定、三級難度、環境與雙語字典
 // ============================================================
 
+export const I18N = {
+    zh: {
+        title: "J.A.R. 衝上雲霄 Pro",
+        subtitle: "科研級 Web 飛行模擬認證平台",
+        startBtn: "進入駕駛艙 / 啟動引擎",
+        modeLabel: "模擬級別",
+        modes: { junior: "學員 / 兒童", advanced: "進階飛手", captain: "機長 / 科研" },
+        weatherLabel: "天氣環境",
+        weather: { day: "晴空萬里 (日間)", sunset: "黃昏日落", night: "夜間儀表 (夜航)", storm: "暴風雨 / 側風" },
+        langBtn: "English",
+        throttle: "油門",
+        brakes: "剎車",
+        flaps: "襟翼",
+        gear: "起落架",
+        rudderL: "◀ 舵",
+        rudderR: "舵 ▶",
+        stall: "失速警告",
+        flutter: "氣動顫振",
+        pullUp: "拉升警告 (PULL UP)"
+    },
+    en: {
+        title: "J.A.R. Skybound Pro",
+        subtitle: "Scientific-Grade Web Flight Simulation Platform",
+        startBtn: "ENTER COCKPIT / START ENGINES",
+        modeLabel: "Flight Level",
+        modes: { junior: "Junior / Cadet", advanced: "Advanced", captain: "Captain / Pro" },
+        weatherLabel: "Environment",
+        weather: { day: "Clear Sky (Day)", sunset: "Sunset Twilight", night: "Night Flight (IFR)", storm: "Storm / Crosswind" },
+        langBtn: "繁體中文",
+        throttle: "THR",
+        brakes: "BRK",
+        flaps: "FLAPS",
+        gear: "GEAR",
+        rudderL: "◀ RUD",
+        rudderR: "RUD ▶",
+        stall: "STALL WARNING",
+        flutter: "FLUTTER RISK",
+        pullUp: "PULL UP"
+    }
+};
+
 export const SIM_CONFIG = {
-    // 飛機幾何與氣動基準 (SkyLiner-9 / 類 C919 級別)
-    AIRCRAFT: {
-        MASS: 75000,          // 最大起飛重量 (kg)
-        WING_AREA: 129.15,    // 機翼面積 (m²)
-        WING_SPAN: 35.8,      // 翼展 (m)
-        CHORD: 4.1,           // 平均氣動弦長 (m)
-        MAX_THRUST: 260000,   // 雙發總推力 (N)
-        STALL_SPEED_IAS: 135, // 失速空速 (kts)
-        VMO_MAX_IAS: 350,     // 最大操作空速 (kts)
-        MMO_MAX_MACH: 0.85    // 最大操作馬赫數 (Mach)
+    currentLang: 'zh',
+    currentLevel: 'advanced', // junior | advanced | captain
+    currentWeather: 'day',    // day | sunset | night | storm
+
+    LEVELS: {
+        junior: {
+            name: "Junior",
+            stabilityAssist: 0.95,   // 自動姿態扶正
+            stallProtection: true,   // 強制防失速
+            windMultiplier: 0.0,     // 無側風無湍流
+            liftBoost: 1.3           // 額外升力充裕
+        },
+        advanced: {
+            name: "Advanced",
+            stabilityAssist: 0.3,
+            stallProtection: false,
+            windMultiplier: 0.5,
+            liftBoost: 1.0
+        },
+        captain: {
+            name: "Captain",
+            stabilityAssist: 0.0,    // 全手動純物理
+            stallProtection: false,
+            windMultiplier: 1.2,     // 強側風與亂流
+            liftBoost: 1.0
+        }
     },
 
-    // 飛控 (FBW & Autopilot) 增益與保護限制
+    AIRCRAFT: {
+        MASS: 75000,
+        WING_AREA: 129.15,
+        WING_SPAN: 35.8,
+        CHORD: 4.1,
+        MAX_THRUST: 260000,
+        STALL_SPEED_IAS: 135,
+        VMO_MAX_IAS: 350
+    },
+
     AUTOPILOT: {
         BASE_ALT_KP: 0.0035,
         BASE_ALT_KI: 0.00005,
@@ -26,31 +92,24 @@ export const SIM_CONFIG = {
         BASE_SPD_KP: 0.015,
         BASE_SPD_KI: 0.0008,
         BASE_SPD_KD: 0.005,
-        
-        // 姿態保護限制
-        PITCH_LIMIT_MAX: 25,  // 最大俯仰角 (deg)
-        PITCH_LIMIT_MIN: -20, // 最小俯仰角 (deg)
-        ROLL_LIMIT: 30,       // 最大滾轉角 (deg)
-        
-        // CWS 人工優先死區與延遲
-        MANUAL_DEADZONE: 0.1,
-        DISCONNECT_DELAY_SEC: 0.15
+        PITCH_LIMIT_MAX: 25,
+        PITCH_LIMIT_MIN: -20,
+        ROLL_LIMIT: 30,
+        MANUAL_DEADZONE: 0.08
     },
 
-    // 飛行管理系統 (FMS & VNAV)
     FMS: {
-        SPEED_ON_PITCH_GAIN: 0.012, // 俯仰控速增益
-        DESCENT_ANGLE_DEG: 3.0,     // 標準下滑角 (deg)
-        CAPTURE_ZONE_FT: 500,       // 垂直截獲區間 ±500ft
-        SPD_LIMIT_ALT: 10000,       // 10,000 ft
-        SPD_LIMIT_BELOW_10K: 250,   // 250 kts 限速
-        BASE_IDLE_THROTTLE: 0.05,   // 海平面基準慢車推力
-        CLIMB_THROTTLE: 0.90        // 額定爬升推力
+        SPEED_ON_PITCH_GAIN: 0.012,
+        DESCENT_ANGLE_DEG: 3.0,
+        CAPTURE_ZONE_FT: 500,
+        SPD_LIMIT_ALT: 10000,
+        SPD_LIMIT_BELOW_10K: 250,
+        BASE_IDLE_THROTTLE: 0.05,
+        CLIMB_THROTTLE: 0.90
     },
 
-    // 儀表與 HUD
     HUD: {
-        VDI_FILTER_ALPHA: 0.15,     // 低通濾波指數係數 (0~1)
-        VDI_MAX_DEV_FT: 1000        // 最大顯示偏離 ±1000ft
+        VDI_FILTER_ALPHA: 0.15,
+        VDI_MAX_DEV_FT: 1000
     }
 };
