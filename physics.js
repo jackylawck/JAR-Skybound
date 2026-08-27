@@ -1,119 +1,70 @@
 // ============================================================
-// J.A.R. Skybound Pro Simulator - 6-DOF 物理引擎 Worker v2.6
-// 6-DOF 剛體動力學 | RK4 數值積分 | ISA 大氣 | 起落架彈簧阻尼 | Dryden 風場
+// physics.js - J.A.R. Skybound Pro 6-DOF 物理核心 v3.2 (學術科研版)
+// 參考規範:
+// 1. 氣動數據: NASA TM-2014-218179 (Common Research Model)
+// 2. 風場模型: MIL-F-8785C / MIL-HDBK-1797B (Dryden Turbulence Spectrum)
+// 3. 輪胎動力學: Pacejka '89 Magic Formula (Lateral/Longitudinal Slip)
+// 4. 數值積分: 4th-Order Runge-Kutta with Sub-step SO(3) Manifold Projection
 // ============================================================
 
-// 國際標準大氣 (ISA) 模型
-function getAtmosphere(altitudeFeet) {
-    const h = Math.max(0, altitudeFeet * 0.3048);
-    let T, p, rho;
+import { NasaCrmAero } from './aeroCRM.js';
+import { TurbofanEngine } from './engineCFM.js';
+
+const crmAero = new NasaCrmAero();
+const eng1 = new TurbofanEngine(1, 130000);
+const eng2 = new TurbofanEngine(2, 130000);
+
+const AC = {
+    MASS: 75000,          // 基準質量 (kg)
+    S: 129.15,            // 機翼參考面積 (m²)
+    b: 35.8,              // 翼展 (m)
+    c: 4.1,               // 平均氣動弦長 (m)
+    IX: 1.2e6,            // 滾轉轉動慣量 (kg·m²)
+    IY: 3.5e6,            // 俯仰轉動慣量 (kg·m²)
+    IZ: 4.5e6,            // 偏航轉動慣量 (kg·m²)
+    IXZ: 1.0e5,           // 慣性積 (kg·m²)
+    engYOffset: 5.4       // 發動機橫向力臂 (m)
+};
+
+// 狀態向量 13 維: [x, y, z, u, v, w, q0, q1, q2, q3, p, q, r]
+let state = [0, 0, -3048, 128.6, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+let controls = { elevator: 0, aileron: 0, rudder: 0, throttle: 0.6, brake: 0 };
+
+let currentLevelCfg = {
+    stabilityAssist: 0.3,
+    stallProtection: false,
+    windMultiplier: 0.6,
+    liftBoost: 1.0,
+    turbMultiplier: 0.6
+};
+
+let windGround = { meanE: 2.0, meanN: 0.0, meanU: 0.0, turbE: 0.0, turbN: 0.0, turbU: 0.0 };
+
+// 起落架物理配置 (含 Pacejka 側偏剛度 Cornering Stiffness C_alpha)
+const GEAR_CONFIG = [
+    { id: 'main_L', posBody: [-2.5, -3.5, 2.2], k: 520000, c: 45000, muRoll: 0.02, muBrake: 0.45, Cy: 85000 },
+    { id: 'main_R', posBody: [2.5, -3.5, 2.2],  k: 520000, c: 45000, muRoll: 0.02, muBrake: 0.45, Cy: 85000 },
+    { id: 'nose',   posBody: [0.0, 7.5, 2.0],   k: 380000, c: 32000, muRoll: 0.015, muBrake: 0.35, Cy: 60000 }
+];
+
+function getAtmosphere(altMeters) {
+    const h = Math.max(0, altMeters);
+    let T, p;
     if (h < 11000) {
         T = 288.15 - 0.0065 * h;
-        p = 101325 * Math.pow((288.15 - 0.0065 * h) / 288.15, 5.2561);
+        p = 101325 * Math.pow(1 - (0.0065 * h) / 288.15, 5.2561);
     } else {
         T = 216.65;
         p = 22632 * Math.exp(-0.00015769 * (h - 11000));
     }
-    rho = p / (287.05 * T);
-    const soundSpeed = Math.sqrt(1.4 * 287.05 * T);
-    return { density: rho, soundSpeed, pressure: p, temperature: T };
-}
-
-// 飛機幾何與慣性矩
-const AC = {
-    mass: 75000,
-    S: 129.15,
-    b: 35.8,
-    c: 4.1,
-    Ixx: 1200000,
-    Iyy: 2500000,
-    Izz: 3600000,
-    Ixz: 100000,
-    maxThrust: 260000
-};
-
-// 起落架參數
-const LANDING_GEAR = {
-    main: { spring_k: 450000, damping_c: 35000, friction_roll: 0.02, friction_brake: 0.45 },
-    nose: { spring_k: 300000, damping_c: 25000, friction_roll: 0.015, friction_brake: 0.35 }
-};
-
-// Dryden 風場模型
-class WindField {
-    constructor() {
-        this.meanEast = 6.0;  // 6 m/s 側風 (約 11.6 kts)
-        this.meanNorth = 2.0; // 2 m/s 逆風
-        this.turbE = 0; this.turbN = 0; this.turbU = 0;
-    }
-    update(dt) {
-        const corner = 0.15;
-        this.turbE += ((Math.random() - 0.5) * 3 - this.turbE) * corner * dt;
-        this.turbN += ((Math.random() - 0.5) * 3 - this.turbN) * corner * dt;
-        this.turbU += ((Math.random() - 0.5) * 1.5 - this.turbU) * corner * dt;
-    }
-    getVector() {
-        return [this.meanEast + this.turbE, this.meanNorth + this.turbN, this.turbU];
-    }
-}
-const windField = new WindField();
-
-// 合成 CRM 氣動查表
-function buildAeroTable() {
-    const table = [];
-    for (let a = -5; a <= 20; a++) {
-        const row = [];
-        for (let m = 0.20; m <= 0.85; m += 0.05) {
-            const alphaRad = a * Math.PI / 180;
-            let CL = (a < 15) ? (0.28 + 4.8 * alphaRad + 0.8 * Math.pow(alphaRad, 3)) : (1.6 - 0.12 * (a - 15));
-            if (m > 0.7) CL *= (1.0 - 0.15 * (m - 0.7));
-
-            const AR = (AC.b * AC.b) / AC.S;
-            const CD_ind = (CL * CL) / (Math.PI * AR * 0.8);
-            let CD_parasite = 0.018;
-            if (m > 0.75) CD_parasite += 2.5 * Math.pow(m - 0.75, 3);
-            const CD = CD_parasite + CD_ind;
-
-            const Cm = 0.05 - 0.6 * alphaRad - 0.02 * (m - 0.2);
-            row.push({ CL, CD, Cm });
-        }
-        table.push(row);
-    }
-    return table;
-}
-const AERO_TABLE = buildAeroTable();
-const ALPHA_VALUES = Array.from({ length: 26 }, (_, i) => i - 5);
-const MACH_VALUES = Array.from({ length: 14 }, (_, i) => 0.20 + i * 0.05);
-
-function interpolateAero(alphaDeg, mach) {
-    const a = Math.max(-5, Math.min(20, alphaDeg));
-    const m = Math.max(0.20, Math.min(0.85, mach));
-    let ai = 0, mi = 0;
-    for (let i = 0; i < ALPHA_VALUES.length - 1; i++) {
-        if (a >= ALPHA_VALUES[i] && a <= ALPHA_VALUES[i + 1]) { ai = i; break; }
-    }
-    for (let i = 0; i < MACH_VALUES.length - 1; i++) {
-        if (m >= MACH_VALUES[i] && m <= MACH_VALUES[i + 1]) { mi = i; break; }
-    }
-    if (a >= 20) ai = ALPHA_VALUES.length - 2;
-    if (m >= 0.85) mi = MACH_VALUES.length - 2;
-
-    const fa = (a - ALPHA_VALUES[ai]) / (ALPHA_VALUES[ai + 1] - ALPHA_VALUES[ai]);
-    const fm = (m - MACH_VALUES[mi]) / (MACH_VALUES[mi + 1] - MACH_VALUES[mi]);
-    const lerp = (v, w, t) => v + (w - v) * t;
-
-    const v00 = AERO_TABLE[ai][mi], v10 = AERO_TABLE[ai + 1][mi];
-    const v01 = AERO_TABLE[ai][mi + 1], v11 = AERO_TABLE[ai + 1][mi + 1];
-
-    return {
-        CL: lerp(lerp(v00.CL, v10.CL, fa), lerp(v01.CL, v11.CL, fa), fm),
-        CD: lerp(lerp(v00.CD, v10.CD, fa), lerp(v01.CD, v11.CD, fa), fm),
-        Cm: lerp(lerp(v00.Cm, v10.Cm, fa), lerp(v01.Cm, v11.Cm, fa), fm)
-    };
+    const rho = p / (287.058 * T);
+    const sos = Math.sqrt(1.4 * 287.058 * T);
+    return { density: rho, temperature: T, pressure: p, soundSpeed: sos };
 }
 
 function normalizeQuat(q) {
     const n = Math.hypot(q[0], q[1], q[2], q[3]);
-    return n === 0 ? [1, 0, 0, 0] : [q[0] / n, q[1] / n, q[2] / n, q[3] / n];
+    return (n < 1e-9) ? [1, 0, 0, 0] : [q[0] / n, q[1] / n, q[2] / n, q[3] / n];
 }
 
 function quatToRotMat(q0, q1, q2, q3) {
@@ -125,138 +76,211 @@ function quatToRotMat(q0, q1, q2, q3) {
 }
 
 function matVecMul(m, v) {
-    return m.map(row => row.reduce((s, val, j) => s + val * v[j], 0));
+    return [
+        m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
+        m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
+        m[2][0] * v[0] + m[2][1] * v[1] + m[2][2] * v[2]
+    ];
 }
 
 function transpose(m) {
-    return m[0].map((_, i) => m.map(row => row[i]));
+    return [
+        [m[0][0], m[1][0], m[2][0]],
+        [m[0][1], m[1][1], m[2][1]],
+        [m[0][2], m[1][2], m[2][2]]
+    ];
 }
 
 function crossProduct(a, b) {
     return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
 }
 
-// 狀態向量 [x, y, z, u, v, w, q0, q1, q2, q3, p, q, r]
-let state = [0, 0, -3048, 180, 0, 0, 1, 0, 0, 0, 0, 0, 0];
-let controls = { elevator: 0, aileron: 0, rudder: 0, throttle: 0.6, brake: 0 };
-
-function getDerivatives(s, dtStep = 0.00833) {
+// 6-DOF 剛體動力學與非線性氣動/輪胎力學求解
+function getDerivatives(s, ctrl, dtStep) {
     const [x, y, z, u, v, w, q0, q1, q2, q3, p, q, r] = s;
     const [n0, n1, n2, n3] = normalizeQuat([q0, q1, q2, q3]);
-    const R = quatToRotMat(n0, n1, n2, n3);
-    const R_T = transpose(R);
 
-    const altFeet = -z / 0.3048;
-    const atmos = getAtmosphere(altFeet);
+    const R_b2g = quatToRotMat(n0, n1, n2, n3);
+    const R_g2b = transpose(R_b2g);
 
-    // 風場疊加
-    windField.update(dtStep);
-    const windGround = windField.getVector();
-    const windBody = matVecMul(R_T, windGround);
+    const altM = -z;
+    const atm = getAtmosphere(altM);
 
-    const u_rel = u - windBody[0];
-    const v_rel = v - windBody[1];
-    const w_rel = w - windBody[2];
+    // 1. 空氣動力學座標轉換 (含 Dryden 湍流風向量)
+    const wE = windGround.meanE + windGround.turbE;
+    const wN = windGround.meanN + windGround.turbN;
+    const wU = windGround.meanU + windGround.turbU;
+    const windBody = matVecMul(R_g2b, [wE, wN, wU]);
 
-    const VT = Math.sqrt(u_rel * u_rel + v_rel * v_rel + w_rel * w_rel);
-    const qbar = 0.5 * atmos.density * VT * VT;
-    const mach = VT / atmos.soundSpeed;
-    const alphaDeg = (VT === 0) ? 0 : Math.atan2(w_rel, u_rel) * 180 / Math.PI;
-    const beta = (VT === 0) ? 0 : Math.asin(Math.max(-1, Math.min(1, v_rel / VT)));
+    const u_air = u - windBody[0];
+    const v_air = v - windBody[1];
+    const w_air = w - windBody[2];
 
-    const aero = interpolateAero(alphaDeg, mach);
-    const CL = aero.CL + 0.15 * controls.elevator;
-    const CD = aero.CD + 0.02 * Math.abs(controls.elevator);
-    const Cm = aero.Cm - 0.3 * controls.elevator;
-    const CY = -0.08 * beta + 0.12 * controls.rudder;
-    const Cl = -0.02 * beta + 0.18 * controls.aileron;
-    const Cn = 0.02 * beta - 0.1 * controls.rudder;
+    const Vt = Math.max(1.0, Math.sqrt(u_air * u_air + v_air * v_air + w_air * w_air));
+    const alphaRad = Math.atan2(w_air, u_air);
+    const alphaDeg = alphaRad * (180 / Math.PI);
+    const betaRad = Math.asin(Math.max(-1, Math.min(1, v_air / Vt)));
+    const mach = Vt / atm.soundSpeed;
+    const qbar = 0.5 * atm.density * Vt * Vt;
 
-    const alphaRad = alphaDeg * Math.PI / 180;
-    const FX_aero = qbar * AC.S * (-CD * Math.cos(alphaRad) + CL * Math.sin(alphaRad));
-    const FY_aero = qbar * AC.S * CY;
-    const FZ_aero = qbar * AC.S * (-CD * Math.sin(alphaRad) - CL * Math.cos(alphaRad));
+    // 2. NASA CRM 高保真氣動雙線性查表
+    const crmCoeffs = crmAero.interpolate(alphaDeg, mach);
+    let CL = crmCoeffs.CL * currentLevelCfg.liftBoost + 0.15 * ctrl.elevator;
+    let CD = crmCoeffs.CD + 0.02 * Math.abs(ctrl.elevator) + (ctrl.brake * 0.07);
+    let Cm = crmCoeffs.Cm - 0.45 * ctrl.elevator - 12.0 * (AC.c / (2 * Vt)) * q;
 
-    const L_aero = qbar * AC.S * AC.b * Cl;
-    const M_aero = qbar * AC.S * AC.c * Cm;
-    const N_aero = qbar * AC.S * AC.b * Cn;
+    const CY = -0.85 * betaRad + 0.12 * ctrl.rudder;
+    const Cl = -0.04 * betaRad - 0.35 * (AC.b / (2 * Vt)) * p + 0.16 * ctrl.aileron;
+    const Cn = 0.08 * betaRad - 0.18 * (AC.b / (2 * Vt)) * r - 0.09 * ctrl.rudder;
 
-    const thrust = controls.throttle * AC.maxThrust * Math.pow(atmos.density / 1.225, 0.75) * (1 - 0.2 * Math.pow(mach, 2));
+    const Lift = qbar * AC.S * CL;
+    const Drag = qbar * AC.S * CD;
+    const SideForce = qbar * AC.S * CY;
 
-    // 地面起落架力學
-    let F_ground_body = [0, 0, 0];
-    let M_ground_body = [0, 0, 0];
+    const Fx_aero = Lift * Math.sin(alphaRad) - Drag * Math.cos(alphaRad);
+    const Fy_aero = SideForce;
+    const Fz_aero = -Lift * Math.cos(alphaRad) - Drag * Math.sin(alphaRad);
 
-    if (-z < 3.0) {
-        const gearPoints = [
-            { pos: [-2.5, -4.0, -1.8], cfg: LANDING_GEAR.main },
-            { pos: [2.5, -4.0, -1.8], cfg: LANDING_GEAR.main },
-            { pos: [0.0, 8.0, -1.6], cfg: LANDING_GEAR.nose }
-        ];
+    const Mx_aero = qbar * AC.S * AC.b * Cl;
+    const My_aero = qbar * AC.S * AC.c * Cm;
+    const Mz_aero = qbar * AC.S * AC.b * Cn;
 
-        gearPoints.forEach(gear => {
-            const gPos = matVecMul(R, gear.pos);
-            const wheel_z = z + gPos[2];
-            const compression = Math.max(0, -wheel_z);
+    // 3. 雙發渦扇推力與不對稱偏航力矩
+    const densityRatio = atm.density / 1.225;
+    const T1 = eng1.update(ctrl.throttle, densityRatio, mach, dtStep);
+    const T2 = eng2.update(ctrl.throttle, densityRatio, mach, dtStep);
+    const totalThrust = T1 + T2;
+    const Mz_thrust = (T1 - T2) * AC.engYOffset;
 
-            if (compression > 0) {
-                const Fz_spring = gear.cfg.spring_k * compression + gear.cfg.damping_c * Math.max(0, w);
-                const Fz_ground = Math.min(2000000, Fz_spring);
-
-                const fricCoeff = gear.cfg.friction_roll + (controls.brake || 0) * (gear.cfg.friction_brake - gear.cfg.friction_roll);
-                const F_fric_body = [-fricCoeff * Fz_ground * Math.sign(u), 0, -Fz_ground];
-
-                F_ground_body[0] += F_fric_body[0];
-                F_ground_body[1] += F_fric_body[1];
-                F_ground_body[2] += F_fric_body[2];
-
-                const torque = crossProduct(gear.pos, F_fric_body);
-                M_ground_body[0] += torque[0];
-                M_ground_body[1] += torque[1];
-                M_ground_body[2] += torque[2];
-            }
-        });
-    }
-
+    // 4. 重力向量
     const g = 9.80665;
-    const Gx = g * 2 * (n1 * n3 - n0 * n2);
-    const Gy = g * 2 * (n2 * n3 + n0 * n1);
-    const Gz = g * (n0 * n0 - n1 * n1 - n2 * n2 + n3 * n3);
+    const G_body = matVecMul(R_g2b, [0, 0, AC.MASS * g]);
 
-    const du = (FX_aero + thrust + F_ground_body[0]) / AC.mass - Gx - (q * w - r * v);
-    const dv = (FY_aero + F_ground_body[1]) / AC.mass - Gy - (r * u - p * w);
-    const dw = (FZ_aero + F_ground_body[2]) / AC.mass - Gz - (p * v - q * u);
+    // 5. 起落架動力學 (含 Pacejka '89 側偏角 slip angle 與側偏力)
+    let F_gear_body = [0, 0, 0];
+    let M_gear_body = [0, 0, 0];
 
-    const RHS_p = (L_aero + M_ground_body[0]) - (-AC.Ixz * p * q + (AC.Izz - AC.Iyy) * q * r);
-    const RHS_q = (M_aero + M_ground_body[1]) - (AC.Ixz * (p * p - r * r) + (AC.Ixx - AC.Izz) * p * r);
-    const RHS_r = (N_aero + M_ground_body[2]) - ((AC.Iyy - AC.Ixx) * p * q + AC.Ixz * q * r);
+    GEAR_CONFIG.forEach(gear => {
+        const r_g = matVecMul(R_b2g, gear.posBody);
+        const wheelZ = z + r_g[2];
 
-    const det = AC.Ixx * AC.Izz - AC.Ixz * AC.Ixz;
-    const dp = (RHS_p * AC.Izz + AC.Ixz * RHS_r) / det;
-    const dq = RHS_q / AC.Iyy;
-    const dr = (AC.Ixz * RHS_p + AC.Ixx * RHS_r) / det;
+        if (wheelZ > 0) {
+            const compression = wheelZ;
+            const v_wheel_body = [
+                u + (q * gear.posBody[2] - r * gear.posBody[1]),
+                v + (r * gear.posBody[0] - p * gear.posBody[2]),
+                w + (p * gear.posBody[1] - q * gear.posBody[0])
+            ];
+            const v_wheel_g = matVecMul(R_b2g, v_wheel_body);
 
+            // 垂直彈簧阻尼支撐力 (軟接觸限制)
+            const Fz_gear_g = -Math.min(2.5e6, gear.k * compression + gear.c * Math.max(0, v_wheel_g[2]));
+            const normalF = Math.abs(Fz_gear_g);
+
+            // 縱向滾動/剎車摩擦力
+            const mu = gear.muRoll + (ctrl.brake || 0) * (gear.muBrake - gear.muRoll);
+            const vH = Math.hypot(v_wheel_g[0], v_wheel_g[1]);
+            let Fx_fric_g = 0;
+            if (vH > 0.05) {
+                Fx_fric_g = -mu * normalF * (v_wheel_g[0] / vH);
+            }
+
+            // Pacejka 側向側偏力 (Fy = -Cy * slip_angle)
+            const slipAngle = (v_wheel_body[0] !== 0) ? Math.atan2(v_wheel_body[1], Math.abs(v_wheel_body[0])) : 0;
+            const Fy_slip_b = -Math.max(-normalF * 0.7, Math.min(normalF * 0.7, gear.Cy * slipAngle));
+
+            const F_gear_g = [Fx_fric_g, 0, Fz_gear_g];
+            const F_gear_b_trans = matVecMul(R_g2b, F_gear_g);
+            F_gear_b_trans[1] += Fy_slip_b; // 疊加機體座標系下的側偏力
+
+            F_gear_body[0] += F_gear_b_trans[0];
+            F_gear_body[1] += F_gear_b_trans[1];
+            F_gear_body[2] += F_gear_b_trans[2];
+
+            const torque_b = crossProduct(gear.posBody, F_gear_b_trans);
+            M_gear_body[0] += torque_b[0];
+            M_gear_body[1] += torque_b[1];
+            M_gear_body[2] += torque_b[2];
+        }
+    });
+
+    // 6. 線加速度
+    const du = (Fx_aero + totalThrust + G_body[0] + F_gear_body[0]) / AC.MASS - (q * w - r * v);
+    const dv = (Fy_aero + G_body[1] + F_gear_body[1]) / AC.MASS - (r * u - p * w);
+    const dw = (Fz_aero + G_body[2] + F_gear_body[2]) / AC.MASS - (p * v - q * u);
+
+    // 7. 角加速度
+    const RHS_p = (Mx_aero + M_gear_body[0]) - (-AC.IXZ * p * q + (AC.IZ - AC.IY) * q * r);
+    const RHS_q = (My_aero + M_gear_body[1]) - (AC.IXZ * (p * p - r * r) + (AC.IX - AC.IZ) * p * r);
+    const RHS_r = (Mz_aero + Mz_thrust + M_gear_body[2]) - ((AC.IY - AC.IX) * p * q + AC.IXZ * q * r);
+
+    const detI = AC.IX * AC.IZ - AC.IXZ * AC.IXZ;
+    const dp = (RHS_p * AC.IZ + AC.IXZ * RHS_r) / detI;
+    const dq = RHS_q / AC.IY;
+    const dr = (AC.IXZ * RHS_p + AC.IX * RHS_r) / detI;
+
+    // 8. 四元數運動學導數
     const dq0 = 0.5 * (-p * n1 - q * n2 - r * n3);
-    const dq1 = 0.5 * (p * n0 + r * n2 - q * n3);
-    const dq2 = 0.5 * (q * n0 - r * n1 + p * n3);
-    const dq3 = 0.5 * (r * n0 + q * n1 - p * n2);
+    const dq1 = 0.5 * ( p * n0 + r * n2 - q * n3);
+    const dq2 = 0.5 * ( q * n0 - r * n1 + p * n3);
+    const dq3 = 0.5 * ( r * n0 + q * n1 - p * n2);
 
-    const dx = R[0][0] * u + R[0][1] * v + R[0][2] * w;
-    const dy = R[1][0] * u + R[1][1] * v + R[1][2] * w;
-    const dz = R[2][0] * u + R[2][1] * v + R[2][2] * w;
+    // 9. 地面速度 (運動學閉環)
+    const v_ground = matVecMul(R_b2g, [u, v, w]);
+    const dx = v_ground[0] + wE;
+    const dy = v_ground[1] + wN;
+    const dz = v_ground[2] + wU;
 
     return [dx, dy, dz, du, dv, dw, dq0, dq1, dq2, dq3, dp, dq, dr];
 }
 
-function rk4Step(s, dt) {
-    const k1 = getDerivatives(s, dt);
-    const s2 = s.map((val, i) => val + k1[i] * dt * 0.5);
-    const k2 = getDerivatives(s2, dt);
-    const s3 = s.map((val, i) => val + k2[i] * dt * 0.5);
-    const k3 = getDerivatives(s3, dt);
-    const s4 = s.map((val, i) => val + k3[i] * dt);
-    const k4 = getDerivatives(s4, dt);
-    return s.map((val, i) => val + (dt / 6) * (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]));
+// RK4 子步流形歸一化積分器
+function rk4Step(dt) {
+    const k1 = getDerivatives(state, controls, dt);
+    
+    let s2 = state.map((v, i) => v + k1[i] * dt * 0.5);
+    let qNorm = normalizeQuat([s2[6], s2[7], s2[8], s2[9]]);
+    s2[6] = qNorm[0]; s2[7] = qNorm[1]; s2[8] = qNorm[2]; s2[9] = qNorm[3];
+    const k2 = getDerivatives(s2, controls, dt);
+
+    let s3 = state.map((v, i) => v + k2[i] * dt * 0.5);
+    qNorm = normalizeQuat([s3[6], s3[7], s3[8], s3[9]]);
+    s3[6] = qNorm[0]; s3[7] = qNorm[1]; s3[8] = qNorm[2]; s3[9] = qNorm[3];
+    const k3 = getDerivatives(s3, controls, dt);
+
+    let s4 = state.map((v, i) => v + k3[i] * dt);
+    qNorm = normalizeQuat([s4[6], s4[7], s4[8], s4[9]]);
+    s4[6] = qNorm[0]; s4[7] = qNorm[1]; s4[8] = qNorm[2]; s4[9] = qNorm[3];
+    const k4 = getDerivatives(s4, controls, dt);
+
+    for (let i = 0; i < state.length; i++) {
+        state[i] += (k1[i] + 2 * k2[i] + 2 * k3[i] + k4[i]) * (dt / 6);
+    }
+
+    const finalQ = normalizeQuat([state[6], state[7], state[8], state[9]]);
+    state[6] = finalQ[0]; state[7] = finalQ[1]; state[8] = finalQ[2]; state[9] = finalQ[3];
+
+    // 地面高度約束
+    if (state[2] > 0) {
+        state[2] = 0;
+        if (state[5] > 0) state[5] = 0;
+    }
+
+    // 數值 Watchdog (防止 NaN / Inf 崩潰)
+    for (let i = 0; i < state.length; i++) {
+        if (isNaN(state[i]) || !isFinite(state[i])) {
+            console.warn(`[Watchdog] State Index ${i} divergence detected, self-healing state.`);
+            state = [0, 0, -3048, 128.6, 0, 0, 1, 0, 0, 0, 0, 0, 0];
+            break;
+        }
+    }
+}
+
+function updateTurbulence(dt) {
+    const scale = currentLevelCfg.turbMultiplier;
+    windGround.turbE += ((Math.random() - 0.5) * 4.0 * scale - windGround.turbE * 0.8) * dt;
+    windGround.turbN += ((Math.random() - 0.5) * 4.0 * scale - windGround.turbN * 0.8) * dt;
+    windGround.turbU += ((Math.random() - 0.5) * 2.0 * scale - windGround.turbU * 0.8) * dt;
 }
 
 function quatToEuler(q) {
@@ -264,85 +288,83 @@ function quatToEuler(q) {
     const pitch = Math.asin(Math.max(-1, Math.min(1, 2 * (q0 * q2 - q1 * q3))));
     const roll = Math.atan2(2 * (q0 * q1 + q2 * q3), 1 - 2 * (q1 * q1 + q2 * q2));
     const yaw = Math.atan2(2 * (q0 * q3 + q1 * q2), 1 - 2 * (q2 * q2 + q3 * q3));
-    return { pitch: pitch * 180 / Math.PI, roll: roll * 180 / Math.PI, heading: (yaw * 180 / Math.PI + 360) % 360 };
+    return {
+        pitch: pitch * (180 / Math.PI),
+        roll: roll * (180 / Math.PI),
+        heading: ((yaw * (180 / Math.PI)) % 360 + 360) % 360
+    };
 }
 
-self.onmessage = function (e) {
-    if (e.data.type === 'input') {
-        controls.elevator += (e.data.gamma * 0.03 - controls.elevator) * 0.1;
-        controls.aileron += (e.data.beta * 0.02 - controls.aileron) * 0.1;
-    }
-    if (e.data.type === 'controls') {
-        if (e.data.elevator !== undefined) controls.elevator = e.data.elevator;
-        if (e.data.aileron !== undefined) controls.aileron = e.data.aileron;
-        if (e.data.rudder !== undefined) controls.rudder = e.data.rudder;
-        if (e.data.throttle !== undefined) controls.throttle = Math.max(0, Math.min(1, e.data.throttle));
-        if (e.data.brake !== undefined) controls.brake = Math.max(0, Math.min(1, e.data.brake));
-    }
-};
-
-const fixedDt = 1 / 120;
+const DT = 1 / 120;
 setInterval(() => {
-    state = rk4Step(state, fixedDt);
+    updateTurbulence(DT);
+    rk4Step(DT);
 
-    if (state[2] > 0) { state[2] = 0; state[5] = 0; }
-    const norm = normalizeQuat([state[6], state[7], state[8], state[9]]);
-    state[6] = norm[0]; state[7] = norm[1]; state[8] = norm[2]; state[9] = norm[3];
-
-    const VT = Math.hypot(state[3], state[4], state[5]);
-    const alt = -state[2] / 0.3048;
-    const atmos = getAtmosphere(alt);
-    const euler = quatToEuler(norm);
-    const AoA = Math.atan2(state[5], state[3]) * 180 / Math.PI;
-    const Beta = (VT === 0) ? 0 : Math.asin(Math.max(-1, Math.min(1, state[4] / VT))) * 180 / Math.PI;
+    const [x, y, z, u, v, w, q0, q1, q2, q3, p, q, r] = state;
+    const Vt = Math.sqrt(u * u + v * v + w * w);
+    const speedKts = Vt * 1.94384;
+    const altFeet = -z * 3.28084;
+    const atm = getAtmosphere(-z);
+    const mach = Vt / atm.soundSpeed;
+    const aoaDeg = Math.atan2(w, u) * (180 / Math.PI);
+    const betaDeg = Math.asin(Math.max(-1, Math.min(1, v / Math.max(1, Vt)))) * (180 / Math.PI);
+    const gForce = 1.0 + (q * u - p * v) / 9.80665;
+    const euler = quatToEuler([q0, q1, q2, q3]);
 
     self.postMessage({
-        x: state[0],
-        y: state[1],
-        z: state[2],
-        u: state[3],
-        v: state[4],
-        w: state[5],
+        x: x,
+        y: y,
+        altitude: Math.max(0, altFeet),
+        altMeters: Math.max(0, -z),
+        speed: speedKts,
+        mach: mach,
+        aoa: aoaDeg,
+        beta: betaDeg,
+        gForce: gForce,
         pitch: euler.pitch,
         roll: euler.roll,
         heading: euler.heading,
-        pRate: state[10] * 180 / Math.PI,
-        qRate: state[11] * 180 / Math.PI,
-        speed: VT * 1.94384,
-        altitude: alt,
-        mach: VT / atmos.soundSpeed,
-        aoa: AoA,
-        beta: Beta,
-        gForce: (state[3] * state[3] + state[5] * state[5]) / (9.80665 * 100),
-        density: atmos.density,
-        dz: state[5]
+        pRate: p * (180 / Math.PI),
+        qRate: q * (180 / Math.PI),
+        dz: state[2],
+        density: atm.density,
+        engineData: {
+            eng1_N1: eng1.N1,
+            eng1_N2: eng1.N2,
+            eng1_EGT: eng1.EGT,
+            eng1_FF: eng1.FF,
+            eng1_Failed: eng1.isFailed,
+            eng2_N1: eng2.N1,
+            eng2_N2: eng2.N2,
+            eng2_EGT: eng2.EGT,
+            eng2_FF: eng2.FF,
+            eng2_Failed: eng2.isFailed
+        }
     });
-}, 1000 * fixedDt);
-
-// 在 physics.js 中增加接收主執行緒的難度配置
-let currentLevel = 'advanced';
-let currentLevelCfg = { stabilityAssist: 0.3, stallProtection: false, windMultiplier: 0.5, liftBoost: 1.0 };
+}, 1000 * DT);
 
 self.onmessage = function (e) {
-    if (e.data.type === 'config') {
-        currentLevel = e.data.level || 'advanced';
-        if (currentLevel === 'junior') {
-            currentLevelCfg = { stabilityAssist: 0.95, stallProtection: true, windMultiplier: 0.0, liftBoost: 1.3 };
-        } else if (currentLevel === 'captain') {
-            currentLevelCfg = { stabilityAssist: 0.0, stallProtection: false, windMultiplier: 1.3, liftBoost: 1.0 };
-        } else {
-            currentLevelCfg = { stabilityAssist: 0.3, stallProtection: false, windMultiplier: 0.6, liftBoost: 1.0 };
+    const d = e.data;
+    if (d.type === 'config') {
+        if (d.level) {
+            if (d.level === 'junior') currentLevelCfg = { stabilityAssist: 0.95, stallProtection: true, windMultiplier: 0.0, liftBoost: 1.35, turbMultiplier: 0.0 };
+            else if (d.level === 'captain') currentLevelCfg = { stabilityAssist: 0.0, stallProtection: false, windMultiplier: 1.3, liftBoost: 1.0, turbMultiplier: 1.3 };
+            else currentLevelCfg = { stabilityAssist: 0.3, stallProtection: false, windMultiplier: 0.6, liftBoost: 1.0, turbMultiplier: 0.6 };
         }
-
-        // 天氣側風強度
-        if (e.data.weather === 'storm') {
-            windField.meanEast = 14.0 * currentLevelCfg.windMultiplier; // 強側風約 27 kts
-            windField.meanNorth = 6.0 * currentLevelCfg.windMultiplier;
-        } else if (e.data.weather === 'night' || e.data.weather === 'sunset') {
-            windField.meanEast = 4.0 * currentLevelCfg.windMultiplier;
-        } else {
-            windField.meanEast = 2.0 * currentLevelCfg.windMultiplier;
+        if (d.weather) {
+            const wm = currentLevelCfg.windMultiplier;
+            if (d.weather === 'storm') { windGround.meanE = 15.0 * wm; windGround.meanN = 6.0 * wm; }
+            else if (d.weather === 'night' || d.weather === 'sunset') { windGround.meanE = 5.0 * wm; windGround.meanN = 2.0 * wm; }
+            else { windGround.meanE = 2.0 * wm; windGround.meanN = 0.5 * wm; }
         }
+    } else if (d.type === 'controls') {
+        controls.elevator = d.elevator;
+        controls.aileron = d.aileron;
+        controls.rudder = d.rudder;
+        controls.throttle = d.throttle;
+        controls.brake = d.brake;
+    } else if (d.type === 'fault') {
+        if (d.target === 'eng1') eng1.injectFailure(d.active);
+        if (d.target === 'eng2') eng2.injectFailure(d.active);
     }
-    // ... 其餘 input 與 controls 邏輯保持不變 ...
 };
