@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - 主線程中樞 v3.3
+// main.js - 主線程中樞 v3.3 (支援滑鼠、觸控與鍵盤手動操縱)
 // ============================================================
 
 import { SIM_CONFIG, I18N, UNITS } from './config.js';
@@ -288,54 +288,103 @@ document.getElementById('btn-fault-eng2')?.addEventListener('click', (e) => {
     if (eng2Fault) sound.speak("ENGINE 2 FLAMEOUT");
 });
 
-// 5. 虛擬搖桿
+// 5. 虛擬搖桿（支援滑鼠 Mouse + 觸控 Touch 全平台輸入）
 const stickZone = document.getElementById('virtual-stick-zone');
 const stickKnob = document.getElementById('virtual-stick-knob');
-let stickTouchId = null;
+let isStickActive = false;
 let stickCenter = { x: 0, y: 0 };
 
 function resetStick() {
-    stickTouchId = null;
+    isStickActive = false;
     if (stickKnob) stickKnob.style.transform = `translate(-50%, -50%)`;
     keyStateControls.aileron = 0;
     keyStateControls.elevator = 0;
 }
 
+function handleStickMove(clientX, clientY) {
+    const dx = clientX - stickCenter.x;
+    const dy = clientY - stickCenter.y;
+    const dist = Math.hypot(dx, dy);
+    const maxR = 40;
+    
+    if (dist < 2.0) {
+        if (stickKnob) stickKnob.style.transform = `translate(-50%, -50%)`;
+        keyStateControls.aileron = 0;
+        keyStateControls.elevator = 0;
+        return;
+    }
+
+    const clampedDist = Math.min(dist, maxR);
+    const angle = Math.atan2(dy, dx);
+    const knobX = Math.cos(angle) * clampedDist;
+    const knobY = Math.sin(angle) * clampedDist;
+
+    if (stickKnob) stickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
+    keyStateControls.aileron = knobX / maxR;     // 正值向右滾轉
+    keyStateControls.elevator = knobY / maxR;    // 下拉 (dy > 0) 為抬頭俯仰 (positive pitch)
+}
+
+// 觸控事件
 stickZone?.addEventListener('touchstart', (e) => {
     e.preventDefault();
     if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
-    const touch = e.changedTouches[0];
-    stickTouchId = touch.identifier;
+    isStickActive = true;
     const rect = stickZone.getBoundingClientRect();
     stickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    handleStickMove(e.touches[0].clientX, e.touches[0].clientY);
 });
 
 window.addEventListener('touchmove', (e) => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        const touch = e.changedTouches[i];
-        if (touch.identifier === stickTouchId) {
-            const dx = touch.clientX - stickCenter.x;
-            const dy = touch.clientY - stickCenter.y;
-            const dist = Math.hypot(dx, dy);
-            const maxR = 45;
-            if (dist < 2.5) { resetStick(); return; }
-            const clampedDist = Math.min(dist, maxR);
-            const angle = Math.atan2(dy, dx);
-            const knobX = Math.cos(angle) * clampedDist;
-            const knobY = Math.sin(angle) * clampedDist;
-            if (stickKnob) stickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
-            keyStateControls.aileron = (knobX / maxR);
-            keyStateControls.elevator = (knobY / maxR);
-        }
-    }
+    if (!isStickActive) return;
+    handleStickMove(e.touches[0].clientX, e.touches[0].clientY);
 });
-window.addEventListener('touchend', (e) => {
-    for (let i = 0; i < e.changedTouches.length; i++) {
-        if (e.changedTouches[i].identifier === stickTouchId) resetStick();
-    }
-});
+window.addEventListener('touchend', resetStick);
 window.addEventListener('touchcancel', resetStick);
 
+// 滑鼠事件 (支援電腦端直接拖曳操縱)
+stickZone?.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
+    isStickActive = true;
+    const rect = stickZone.getBoundingClientRect();
+    stickCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    handleStickMove(e.clientX, e.clientY);
+});
+
+window.addEventListener('mousemove', (e) => {
+    if (!isStickActive) return;
+    handleStickMove(e.clientX, e.clientY);
+});
+window.addEventListener('mouseup', resetStick);
+
+// 6. 鍵盤飛行控制 (方向鍵 / WASD)
+window.addEventListener('keydown', (e) => {
+    if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
+    
+    // 俯仰 (Pitch)
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keyStateControls.elevator = -0.8; // 推桿低頭
+    if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') keyStateControls.elevator = 0.8; // 拉桿抬頭
+    
+    // 滾轉 (Roll)
+    if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyStateControls.aileron = -0.8; // 左傾
+    if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyStateControls.aileron = 0.8; // 右傾
+    
+    // 偏航 (Rudder)
+    if (e.key === 'q' || e.key === 'Q') keyStateControls.rudder = -1.0;
+    if (e.key === 'e' || e.key === 'E') keyStateControls.rudder = 1.0;
+    
+    // 剎車 (Brake)
+    if (e.key === ' ') keyStateControls.brake = 1.0;
+});
+
+window.addEventListener('keyup', (e) => {
+    if (['ArrowUp', 'ArrowDown', 'w', 's', 'W', 'S'].includes(e.key)) keyStateControls.elevator = 0;
+    if (['ArrowLeft', 'ArrowRight', 'a', 'd', 'A', 'D'].includes(e.key)) keyStateControls.aileron = 0;
+    if (['q', 'e', 'Q', 'E'].includes(e.key)) keyStateControls.rudder = 0;
+    if (e.key === ' ') keyStateControls.brake = 0;
+});
+
+// 油門滑塊
 const throttleSlider = document.getElementById('touch-throttle');
 const thrValText = document.getElementById('thr-val-text');
 throttleSlider?.addEventListener('input', (e) => {
@@ -345,6 +394,7 @@ throttleSlider?.addEventListener('input', (e) => {
     if (thrValText) thrValText.innerText = `${Math.round(val * 100)}%`;
 });
 
+// 方向舵與剎車按鈕
 document.getElementById('btn-rud-left')?.addEventListener('pointerdown', () => keyStateControls.rudder = -1.0);
 document.getElementById('btn-rud-left')?.addEventListener('pointerup', () => keyStateControls.rudder = 0);
 document.getElementById('btn-rud-right')?.addEventListener('pointerdown', () => keyStateControls.rudder = 1.0);
@@ -352,7 +402,7 @@ document.getElementById('btn-rud-right')?.addEventListener('pointerup', () => ke
 document.getElementById('btn-brake')?.addEventListener('pointerdown', () => keyStateControls.brake = 1.0);
 document.getElementById('btn-brake')?.addEventListener('pointerup', () => keyStateControls.brake = 0);
 
-// 6. MCP 面板
+// 7. MCP 面板
 const btnAP = document.getElementById('btn-ap');
 const btnLNAV = document.getElementById('btn-lnav');
 const btnVNAV = document.getElementById('btn-vnav');
@@ -382,7 +432,7 @@ document.getElementById('hdg-dec')?.addEventListener('click', () => { ap.setTarg
 document.getElementById('alt-inc')?.addEventListener('click', () => { ap.setTarget('ALT', ap.targets.altitude + 500); updateMcpButtonsUI(); });
 document.getElementById('alt-dec')?.addEventListener('click', () => { ap.setTarget('ALT', ap.targets.altitude - 500); updateMcpButtonsUI(); });
 
-// 7. 啟動模擬器與主渲染迴圈
+// 8. 啟動模擬器與主渲染迴圈
 document.getElementById('start-btn')?.addEventListener('click', async () => {
     sound.init();
 
