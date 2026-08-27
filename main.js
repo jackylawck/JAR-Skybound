@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - J.A.R. Skybound v3.6.6 (真實座艙視角修正版)
+// main.js - J.A.R. Skybound v3.6.7 (徹底消除機身穿幫與純淨座艙視角)
 // ============================================================
 
 if (window.top !== window.self) {
@@ -189,7 +189,7 @@ document.querySelectorAll('#group-level .opt-btn').forEach(btn => {
         btn.classList.add('active');
         SIM_CONFIG.currentLevel = btn.dataset.val;
         const telMode = document.getElementById('tel-mode');
-        if (telMode) telMode.innerText = `LEVEL: ${SIM_CONFIG.currentLevel.toUpperCase()}`;
+        if (telMode) telMode.innerText = SIM_CONFIG.currentLevel.toUpperCase();
         if (physicsWorker) physicsWorker.postMessage({ type: 'config', level: SIM_CONFIG.currentLevel, weather: SIM_CONFIG.currentWeather });
     });
 });
@@ -205,7 +205,7 @@ document.querySelectorAll('#group-weather .opt-btn').forEach(btn => {
 });
 
 // ============================================================
-// 3. 次世代 Three.js 渲染管線 (大氣散射、遠山、海面、精細客機)
+// 3. 次世代 Three.js 渲染管線
 // ============================================================
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.2, 200000);
@@ -406,7 +406,7 @@ for (let p = 0; p < 4; p++) {
     scene.add(sp); papiSprites.push(sp);
 }
 
-// 3D 客機外部模型
+// 3D 客機外部模型 (預設隱藏以提供 100% 純淨開揚的第一人稱視野)
 const airplaneGroup = new THREE.Group();
 const planeBodyMat = new THREE.MeshStandardMaterial({ color: 0xf0f3f6, roughness: 0.35, metalness: 0.2 });
 const planeDarkMat = new THREE.MeshStandardMaterial({ color: 0x1a232f, roughness: 0.5 });
@@ -435,6 +435,7 @@ const engMesh2 = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 4.2, 16), p
 engMesh2.rotation.x = Math.PI / 2; engMesh2.position.set(5.4, -1.2, 2.5);
 
 airplaneGroup.add(fuselage, noseCone, wingL, wingR, wingletL, wingletR, vTail, hTailL, hTailR, engMesh1, engMesh2);
+airplaneGroup.visible = false; // 🚫 第一人稱駕駛艙視角：隱藏外部機身，徹底消除機鼻與機翼穿幫
 scene.add(airplaneGroup);
 
 // 雲層
@@ -600,7 +601,7 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', resetStick);
 
-// 6. 鍵盤控制
+// 6. 鍵盤飛行控制
 window.addEventListener('keydown', (e) => {
     if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keyStateControls.elevator = -0.8;
@@ -760,24 +761,8 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
         const planeAltitudeM = s.altMeters !== undefined ? s.altMeters : s.altitude * UNITS.FT_TO_M;
         const posX = s.x, posY = Math.max(2.4, planeAltitudeM + 2.4), posZ = s.y;
 
-        // 同步外部 3D 機體位置與姿態
-        airplaneGroup.position.set(posX, posY - 0.4, posZ);
-        airplaneGroup.rotation.order = 'YXZ';
-        airplaneGroup.rotation.y = THREE.MathUtils.degToRad(-s.heading + 180);
-        airplaneGroup.rotation.x = THREE.MathUtils.degToRad(-s.pitch);
-        airplaneGroup.rotation.z = THREE.MathUtils.degToRad(s.roll);
-
-        // 第一人稱駕駛艙視角 (前推 14.5m 至機長風擋，徹底消除穿幫機鼻與機翼)
-        const forwardDist = 14.5;
-        const eyeHeight = 1.2;
-        const radH = THREE.MathUtils.degToRad(-s.heading);
-        const radP = THREE.MathUtils.degToRad(s.pitch);
-
-        const camX = posX - Math.sin(radH) * Math.cos(radP) * forwardDist;
-        const camY = posY + eyeHeight + Math.sin(radP) * forwardDist;
-        const camZ = posZ - Math.cos(radH) * Math.cos(radP) * forwardDist;
-
-        camera.position.set(camX, camY, camZ);
+        // 第一人稱駕駛艙視角 (純淨無穿幫)
+        camera.position.set(posX, posY, posZ);
         camera.rotation.order = 'YXZ';
         camera.rotation.y = THREE.MathUtils.degToRad(-s.heading);
         camera.rotation.x = THREE.MathUtils.degToRad(s.pitch);
