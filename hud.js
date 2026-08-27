@@ -2,7 +2,7 @@
 // hud.js - Canvas 2D Retina 抬頭顯示器 (HUD)
 // ============================================================
 
-import { SIM_CONFIG, I18N } from './config.js';
+import { SIM_CONFIG } from './config.js';
 
 export class HUD {
     constructor(canvas) {
@@ -45,29 +45,29 @@ export class HUD {
 
     draw() {
         const ctx = this.ctx;
-        const W = this.width, H = this.height;
-        if (!W || !H) return;
+        const W = this.width || window.innerWidth;
+        const H = this.height || window.innerHeight;
         ctx.clearRect(0, 0, W, H);
 
-        const cx = W / 2, cy = H / 2 - 15;
+        const cx = W / 2, cy = H / 2 - 10;
         const radius = Math.min(W, H) * 0.18;
 
         const tapeW = 55;
-        const tapeH = H * 0.5;
+        const tapeH = H * 0.48;
         const tapeLeftX = Math.max(20, W * 0.12);
         const tapeRightX = Math.min(W - 75, W * 0.88 - tapeW);
 
         this.drawADI(ctx, cx, cy, radius);
-        this.drawTape(ctx, 'left', tapeLeftX, H * 0.25, tapeW, tapeH, this.data.speed, 0, 1000, 'SPD');
-        this.drawTape(ctx, 'right', tapeRightX, H * 0.25, tapeW, tapeH, this.data.altitude, 0, 60000, 'ALT');
-        this.drawHeadingTape(ctx, W * 0.3, 20, W * 0.4, 30, this.data.heading);
+        this.drawTape(ctx, 'left', tapeLeftX, H * 0.24, tapeW, tapeH, this.data.speed, 0, 1000, 'SPD');
+        this.drawTape(ctx, 'right', tapeRightX, H * 0.24, tapeW, tapeH, this.data.altitude, 0, 60000, 'ALT');
+        this.drawHeadingTape(ctx, W * 0.3, 15, W * 0.4, 28, this.data.heading);
 
         if (this.data.alpha !== undefined && this.data.beta !== undefined) {
             this.drawFPM(ctx, cx, cy, this.data.alpha, this.data.beta);
         }
 
         if (this.data.vnav_active) {
-            this.drawVDI(ctx, tapeRightX - 20, H * 0.5, 100, this.filteredVdiDev);
+            this.drawVDI(ctx, tapeRightX - 20, H * 0.48, 100, this.filteredVdiDev);
         }
 
         this.drawStatus(ctx, W / 2, H - 25);
