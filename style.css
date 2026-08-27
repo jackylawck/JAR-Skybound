@@ -1,5 +1,5 @@
 /* ============================================================
-   J.A.R. Skybound - 極簡自適應座艙樣式表 v3.6.3
+   J.A.R. Skybound - 極致視野與操控上移樣式表 v3.6.5
    ============================================================ */
 
 :root {
@@ -118,53 +118,53 @@ body {
 #canvas-container { position: absolute; width: 100vw; height: 100vh; z-index: 1; }
 #hud-canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; }
 
-/* 頂部極簡狀態條 (全透明浮動) */
+/* 頂部極限貼頂狀態條 (top: 3px) */
 #telemetry-bar {
     position: absolute; 
-    top: 8px; 
+    top: 3px; 
     left: 50%; 
     transform: translateX(-50%);
     z-index: 20; 
-    background: rgba(5, 12, 22, 0.6); 
-    border: 1px solid rgba(0, 220, 255, 0.25);
-    border-radius: 16px; 
-    padding: 3px 10px; 
+    background: rgba(5, 12, 22, 0.5); 
+    border: 1px solid rgba(0, 220, 255, 0.2);
+    border-radius: 12px; 
+    padding: 2px 8px; 
     display: flex; 
-    gap: 8px;
-    font-size: 10px; 
+    gap: 6px;
+    font-size: 9.5px; 
     color: var(--hud-cyan); 
-    backdrop-filter: blur(6px); 
+    backdrop-filter: blur(4px); 
     pointer-events: none;
     white-space: nowrap;
 }
 
-/* ⚙️ 右上角儀表折疊按鈕 */
+/* ⚙️ 右上角儀表折疊按鈕 (top: 3px, right: 4px) */
 #top-menu-btn {
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 3px;
+    right: 4px;
     z-index: 40;
     background: rgba(6, 14, 25, 0.85);
     border: 1px solid var(--hud-cyan);
     color: var(--hud-cyan);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: bold;
-    padding: 4px 8px;
-    border-radius: 6px;
+    padding: 3px 6px;
+    border-radius: 4px;
     cursor: pointer;
     backdrop-filter: blur(6px);
 }
 
-/* 浮動抽屜選單 (預設徹底隱藏) */
+/* 浮動抽屜選單 */
 #drawer-panel {
     position: absolute;
-    top: 40px;
-    right: 8px;
+    top: 32px;
+    right: 4px;
     z-index: 35;
-    display: none; /* 預設不顯示，點擊按鈕才彈出 */
+    display: none;
     flex-direction: column;
-    gap: 8px;
-    max-height: calc(100vh - 100px);
+    gap: 6px;
+    max-height: calc(100vh - 80px);
     overflow-y: auto;
 }
 
@@ -175,28 +175,24 @@ body {
 #eicas-display {
     background: var(--panel-bg); 
     border: 1px solid var(--panel-border);
-    border-radius: 8px; 
-    padding: 8px 10px; 
+    border-radius: 6px; 
+    padding: 6px 8px; 
     color: var(--hud-cyan);
-    font-size: 10px; 
-    backdrop-filter: blur(10px);
+    font-size: 9.5px; 
+    backdrop-filter: blur(8px);
 }
-.eicas-title { font-weight: bold; color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 2px; margin-bottom: 4px; text-align: center; }
-.eicas-grid { display: flex; gap: 10px; }
+.eicas-title { font-weight: bold; color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 2px; margin-bottom: 3px; text-align: center; }
+.eicas-grid { display: flex; gap: 8px; }
 .eng-name { color: var(--hud-amber); font-weight: bold; }
 
-#ios-panel {
-    display: flex; 
-    flex-direction: column; 
-    gap: 4px; 
-}
+#ios-panel { display: flex; flex-direction: column; gap: 3px; }
 .ios-btn {
     background: rgba(14, 24, 40, 0.9); 
     color: #fff; 
     border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 6px 8px; 
+    padding: 4px 6px; 
     border-radius: 4px; 
-    font-size: 10px; 
+    font-size: 9px; 
     cursor: pointer; 
 }
 .active_fault { background: #e74c3c !important; border-color: #ff0000 !important; }
@@ -205,13 +201,13 @@ body {
     background: var(--panel-bg); 
     border: 1px solid var(--panel-border);
     border-radius: 6px; 
-    padding: 6px; 
+    padding: 4px; 
 }
-.scope-header { display: flex; justify-content: space-between; font-size: 9px; margin-bottom: 3px; }
-.scope-toggle-btn { background: rgba(20,35,55,0.7); border: 1px solid rgba(0,220,255,0.3); color: #fff; font-size: 9px; padding: 2px 5px; border-radius: 2px; }
-#oscilloscope-canvas { display: block; width: 190px; height: 80px; background: rgba(3, 8, 15, 0.95); }
+.scope-header { display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 2px; }
+.scope-toggle-btn { background: rgba(20,35,55,0.7); border: 1px solid rgba(0,220,255,0.3); color: #fff; font-size: 8px; padding: 1px 4px; border-radius: 2px; }
+#oscilloscope-canvas { display: block; width: 170px; height: 70px; background: rgba(3, 8, 15, 0.95); }
 
-/* ================= 觸控操控層 ================= */
+/* ================= 觸控操控層 (全面上移 bottom: 68px) ================= */
 #touch-controls {
     position: absolute; 
     top: 0; left: 0; 
@@ -222,39 +218,39 @@ body {
 
 #left-controls {
     position: absolute; 
-    bottom: 50px; 
-    left: 8px; 
+    bottom: 68px; /* 🔼 顯著上移，徹底避開底部按鍵與手勢條 */
+    left: 6px; 
     display: flex; 
-    gap: 6px;
+    gap: 5px;
     align-items: flex-end; 
     pointer-events: auto;
 }
 
 .throttle-container {
-    background: rgba(6, 14, 25, 0.6); 
+    background: rgba(6, 14, 25, 0.55); 
     border: 1px solid rgba(0, 220, 255, 0.3);
-    border-radius: 8px; 
-    padding: 6px 4px; 
+    border-radius: 6px; 
+    padding: 5px 3px; 
     display: flex; 
     flex-direction: column;
     align-items: center; 
-    gap: 4px; 
+    gap: 3px; 
     backdrop-filter: blur(4px);
 }
 
-.ctrl-label { font-size: 9px; color: var(--hud-cyan); font-weight: bold; }
-#touch-throttle { -webkit-appearance: slider-vertical; width: 18px; height: 90px; accent-color: #00ff88; }
-#thr-val-text { font-size: 9.5px; color: #00ff88; font-weight: bold; }
+.ctrl-label { font-size: 8.5px; color: var(--hud-cyan); font-weight: bold; }
+#touch-throttle { -webkit-appearance: slider-vertical; width: 16px; height: 80px; accent-color: #00ff88; }
+#thr-val-text { font-size: 9px; color: #00ff88; font-weight: bold; }
 
-.rudder-bar { display: flex; flex-direction: column; gap: 4px; }
+.rudder-bar { display: flex; flex-direction: column; gap: 3px; }
 .pedal-btn {
     background: rgba(12, 22, 38, 0.75); 
     border: 1px solid rgba(0, 180, 255, 0.35);
     color: var(--hud-cyan); 
-    width: 32px; 
-    height: 28px; 
+    width: 28px; 
+    height: 24px; 
     border-radius: 4px;
-    font-size: 10px; 
+    font-size: 9px; 
     font-weight: bold; 
     cursor: pointer;
 }
@@ -264,14 +260,14 @@ body {
 
 #right-controls {
     position: absolute; 
-    bottom: 50px; 
+    bottom: 68px; /* 🔼 顯著上移，操作極度舒適 */
     right: 8px; 
     pointer-events: auto;
 }
 
 #virtual-stick-zone {
-    width: 90px; 
-    height: 90px; 
+    width: 82px; 
+    height: 82px; 
     border-radius: 50%;
     background: radial-gradient(circle, rgba(0, 243, 255, 0.05) 0%, rgba(5, 16, 32, 0.55) 100%);
     border: 1.5px solid rgba(0, 243, 255, 0.3); 
@@ -280,23 +276,24 @@ body {
 }
 
 #virtual-stick-knob {
-    width: 30px; 
-    height: 30px; 
+    width: 26px; 
+    height: 26px; 
     border-radius: 50%;
     background: radial-gradient(circle at 35% 35%, #00ffff 0%, #0077aa 100%);
     position: absolute; 
     top: 50%; left: 50%;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 10px rgba(0, 243, 255, 0.6);
+    box-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
 }
 
-/* 底部 MCP 窄版面板 */
+/* 底部 MCP 窄版面板 (貼底，高度 34px) */
 .cockpit-glare-shield {
     position: absolute; 
     bottom: 0; left: 0; right: 0; 
-    height: 40px;
+    height: 34px;
+    padding-bottom: env(safe-area-inset-bottom);
     background: rgba(5, 10, 18, 0.95);
-    border-top: 1px solid rgba(0, 220, 255, 0.35);
+    border-top: 1px solid rgba(0, 220, 255, 0.3);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -307,15 +304,15 @@ body {
     display: flex; 
     justify-content: center; 
     align-items: center;
-    gap: 4px;
-    padding: 0 4px; 
+    gap: 3px;
+    padding: 0 2px; 
     overflow-x: auto;
     width: 100%;
 }
 
 .mcp-btn {
-    padding: 3px 6px; 
-    font-size: 9px; 
+    padding: 2px 5px; 
+    font-size: 8.5px; 
     border: 1px solid rgba(0, 200, 255, 0.3);
     background: rgba(18, 28, 44, 0.85); 
     color: #9ab0c7; 
@@ -327,6 +324,6 @@ body {
 .mcp-btn.active_lnav { background: var(--hud-cyan); color: #000; }
 .mcp-btn.active_vnav { background: #ff00ff; color: #fff; }
 
-.mcp-group { display: flex; align-items: center; gap: 2px; font-size: 9px; color: var(--hud-cyan); }
-.mcp-val { background: #000; padding: 2px 3px; border: 1px solid rgba(0, 200, 255, 0.3); border-radius: 2px; min-width: 30px; text-align: center; }
-.mcp-step-btn { padding: 2px 4px; font-size: 9px; background: #141f30; border: 1px solid rgba(0, 200, 255, 0.3); color: var(--hud-cyan); cursor: pointer; }
+.mcp-group { display: flex; align-items: center; gap: 2px; font-size: 8.5px; color: var(--hud-cyan); }
+.mcp-val { background: #000; padding: 1px 3px; border: 1px solid rgba(0, 200, 255, 0.3); border-radius: 2px; min-width: 28px; text-align: center; }
+.mcp-step-btn { padding: 1px 4px; font-size: 8.5px; background: #141f30; border: 1px solid rgba(0, 200, 255, 0.3); color: var(--hud-cyan); cursor: pointer; }
