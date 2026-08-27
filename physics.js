@@ -1,5 +1,5 @@
 // ============================================================
-// physics.js - 6-DOF 物理計算核心 v3.3 (含資安防禦邊界校驗)
+// physics.js - 6-DOF 物理計算核心 v3.6.8 (含自動改平、重啟與安全校驗)
 // ============================================================
 
 class NasaCrmAero {
@@ -129,8 +129,8 @@ const AC = {
 
 let state = [0, 0, -3048, 128.6, 0, 0, 1, 0, 0, 0, 0, 0, 0];
 let controls = { elevator: 0, aileron: 0, rudder: 0, throttle: 0.6, brake: 0 };
-let currentLevelCfg = { stabilityAssist: 0.3, stallProtection: false, windMultiplier: 0.6, liftBoost: 1.0, turbMultiplier: 0.6 };
-let windGround = { meanE: 2.0, meanN: 0.0, meanU: 0.0, turbE: 0.0, turbN: 0.0, turbU: 0.0 };
+let currentLevelCfg = { stabilityAssist: 0.95, stallProtection: true, windMultiplier: 0.0, liftBoost: 1.25, turbMultiplier: 0.0 };
+let windGround = { meanE: 0.0, meanN: 0.0, meanU: 0.0, turbE: 0.0, turbN: 0.0, turbU: 0.0 };
 
 const GEAR_CONFIG = [
     { id: 'main_L', posBody: [-2.5, -3.5, 2.2], k: 520000, c: 45000, muRoll: 0.02, muBrake: 0.45, Cy: 85000 },
@@ -206,14 +206,34 @@ function getDerivatives(s, ctrl, dtStep) {
     const mach = Vt / atm.soundSpeed;
     const qbar = 0.5 * atm.density * Vt * Vt;
 
-    const crmCoeffs = crmAero.getCoefficients(alphaDeg, mach);
-    let CL = crmCoeffs.CL * currentLevelCfg.liftBoost + 0.15 * ctrl.elevator;
-    let CD = crmCoeffs.CD + 0.02 * Math.abs(ctrl.elevator) + (ctrl.brake * 0.07);
-    let Cm = crmCoeffs.Cm - 0.45 * ctrl.elevator - 12.0 * (AC.c / (2 * Vt)) * q;
+    // 🤖 兒童/學員模式 (JUNIOR) 電傳自動改平與穩定性增強力矩 (Fly-By-Wire Stability)
+    let effectiveElevator = ctrl.elevator;
+    let effectiveAileron = ctrl.aileron;
+    let effectiveRudder = ctrl.rudder;
 
-    const CY = -0.85 * betaRad + 0.12 * ctrl.rudder;
-    const Cl = -0.04 * betaRad - 0.35 * (AC.b / (2 * Vt)) * p + 0.16 * ctrl.aileron;
-    const Cn = 0.08 * betaRad - 0.18 * (AC.b / (2 * Vt)) * r - 0.09 * ctrl.rudder;
+    if (currentLevelCfg.stabilityAssist > 0.5) {
+        // 提取目前俯仰角與滾轉角
+        const currentPitchRad = Math.asin(Math.max(-1, Math.min(1, 2 * (n0 * n2 - n1 * n3))));
+        const currentRollRad = Math.atan2(2 * (n0 * n1 + n2 * n3), 1 - 2 * (n1 * n1 + n2 * n2));
+
+        // 當未輸入副翼時，自動提供回正力矩拉平機翼
+        if (Math.abs(ctrl.aileron) < 0.05) {
+            effectiveAileron -= currentRollRad * 0.85;
+        }
+        // 當未輸入升降舵時，自動維持水平俯仰
+        if (Math.abs(ctrl.elevator) < 0.05) {
+            effectiveElevator += currentPitchRad * 0.6;
+        }
+    }
+
+    const crmCoeffs = crmAero.getCoefficients(alphaDeg, mach);
+    let CL = crmCoeffs.CL * currentLevelCfg.liftBoost + 0.15 * effectiveElevator;
+    let CD = crmCoeffs.CD + 0.02 * Math.abs(effectiveElevator) + (ctrl.brake * 0.07);
+    let Cm = crmCoeffs.Cm - 0.45 * effectiveElevator - 12.0 * (AC.c / (2 * Vt)) * q;
+
+    const CY = -0.85 * betaRad + 0.12 * effectiveRudder;
+    const Cl = -0.04 * betaRad - 0.35 * (AC.b / (2 * Vt)) * p + 0.16 * effectiveAileron;
+    const Cn = 0.08 * betaRad - 0.18 * (AC.b / (2 * Vt)) * r - 0.09 * effectiveRudder;
 
     const Lift = qbar * AC.S * CL;
     const Drag = qbar * AC.S * CD;
@@ -419,7 +439,6 @@ self.onmessage = function (e) {
             else { windGround.meanE = 2.0 * wm; windGround.meanN = 0.5 * wm; }
         }
     } else if (d.type === 'controls') {
-        // 數值強制過濾與 Clamping
         controls.elevator = Math.max(-1, Math.min(1, Number(d.elevator) || 0));
         controls.aileron = Math.max(-1, Math.min(1, Number(d.aileron) || 0));
         controls.rudder = Math.max(-1, Math.min(1, Number(d.rudder) || 0));
@@ -429,5 +448,23 @@ self.onmessage = function (e) {
         const isActive = Boolean(d.active);
         if (d.target === 'eng1') eng1.isFailed = isActive;
         if (d.target === 'eng2') eng2.isFailed = isActive;
+    } else if (d.type === 'respawn') {
+        // 🔄 重新起飛重設狀態
+        const st = d.state || {};
+        const resetAltMeters = Number(st.altMeters) || 3048; // 預設重回 10,000 呎
+        const resetSpeedKts = Number(st.speedKts) || 250;
+        const resetSpeedMps = resetSpeedKts * 0.514444;
+
+        state = [
+            Number(st.x) || 0,
+            Number(st.y) || 0,
+            -resetAltMeters,
+            resetSpeedMps, 0, 0,
+            1, 0, 0, 0,
+            0, 0, 0
+        ];
+        eng1.isFailed = false; eng1.N1 = 68.0;
+        eng2.isFailed = false; eng2.N1 = 68.0;
+        controls = { elevator: 0, aileron: 0, rudder: 0, throttle: 0.65, brake: 0 };
     }
 };
