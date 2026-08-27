@@ -1,5 +1,5 @@
 // ============================================================
-// config.js - 全域配置與 100% 雙語字典 v3.6.9
+// config.js - 全域配置與 100% 完整雙語字典 v3.7.1
 // ============================================================
 
 export const UNITS = {
@@ -76,6 +76,7 @@ export const I18N = {
         eicasTitle: "發動機與燃油 (EICAS)",
         eng1Lbl: "左發 1 (L)",
         eng2Lbl: "右發 2 (R)",
+        scopeToggle: "切換通道",
         fdrBtn: "📥 導出 FDR 黑匣子 (CSV)",
         fault1: "⚠️ 左發停車 (ENG 1 FAIL)",
         fault2: "⚠️ 右發停車 (ENG 2 FAIL)",
@@ -94,7 +95,7 @@ export const I18N = {
         langBtn: "中文",
         modeLabel: "SIM LEVEL",
         weatherLabel: "ENVIRONMENT",
-        throttle: "THR",
+        throttle: "THROTTLE",
         rudderL: "◀",
         rudderR: "▶",
         brakes: "BRK",
@@ -103,6 +104,7 @@ export const I18N = {
         eicasTitle: "ENGINE & FUEL (EICAS)",
         eng1Lbl: "ENG 1 (L)",
         eng2Lbl: "ENG 2 (R)",
+        scopeToggle: "SWITCH",
         fdrBtn: "📥 EXPORT FDR (CSV)",
         fault1: "⚠️ ENG 1 FAIL",
         fault2: "⚠️ ENG 2 FAIL",
@@ -111,7 +113,7 @@ export const I18N = {
         crashSpd: "Impact Speed:",
         crashVs: "Vertical Speed:",
         respawnBtn: "🔄 RESTART FLIGHT",
-        modes: { junior: "Cadet", advanced: "Advanced", captain: "Captain" },
-        weather: { day: "Day Clear", sunset: "Sunset", night: "Night IFR", storm: "Storm" }
+        modes: { junior: "CADET", advanced: "ADVANCED", captain: "CAPTAIN" },
+        weather: { day: "DAY", sunset: "SUNSET", night: "NIGHT", storm: "STORM" }
     }
 };
