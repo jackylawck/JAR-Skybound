@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - J.A.R. Skybound v3.7.2 (抽屜點擊修復 + 全雙語覆蓋)
+// main.js - J.A.R. Skybound v3.7.3 (全局直連觸控修復版)
 // ============================================================
 
 if (window.top !== window.self) {
@@ -130,6 +130,34 @@ let isSimRunning = false;
 
 const keyStateControls = { elevator: 0, aileron: 0, rudder: 0, throttle: 0.6, brake: 0, isManualThrottleInput: false };
 
+// 🌟 全局直連函數：100% 免疫 iOS 事件冒泡與攔截
+window.toggleAvionicsDrawer = function(e) {
+    if (e) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
+    const drawer = document.getElementById('drawer-panel');
+    if (drawer) {
+        const isHidden = (drawer.style.display === 'none' || drawer.style.display === '');
+        drawer.style.display = isHidden ? 'flex' : 'none';
+    }
+};
+
+window.returnToStartScreen = function(e) {
+    if (e) {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+        if (typeof e.stopPropagation === 'function') e.stopPropagation();
+    }
+    const startScreen = document.getElementById('start-screen');
+    if (startScreen) {
+        startScreen.style.display = 'flex';
+        startScreen.style.zIndex = '999';
+    }
+    const drawer = document.getElementById('drawer-panel');
+    if (drawer) drawer.style.display = 'none';
+    applyLanguage();
+};
+
 // 1. 100% 完整雙語切換
 function applyLanguage() {
     const lang = SIM_CONFIG.currentLang;
@@ -145,6 +173,7 @@ function applyLanguage() {
     safeSet('ui-thr-label', t.throttle);
     safeSet('lbl-top-menu', t.menuBtn);
     safeSet('lbl-menu-return', t.menuReturn);
+    safeSet('ui-drawer-title', t.drawerTitle || "AVIONICS & IOS");
     safeSet('ui-eicas-title', t.eicasTitle);
     safeSet('ui-eng1-lbl', t.eng1Lbl);
     safeSet('ui-eng2-lbl', t.eng2Lbl);
@@ -205,37 +234,6 @@ document.querySelectorAll('#group-weather .opt-btn').forEach(btn => {
         updateTelemetryBar();
         if (physicsWorker) physicsWorker.postMessage({ type: 'config', level: SIM_CONFIG.currentLevel, weather: SIM_CONFIG.currentWeather });
     });
-});
-
-// 🏠 左上角：返回選單
-function handleReturnToMenu(e) {
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    const startScreen = document.getElementById('start-screen');
-    if (startScreen) {
-        startScreen.style.display = 'flex';
-        startScreen.style.zIndex = '999';
-    }
-    document.getElementById('drawer-panel')?.classList.remove('open');
-    applyLanguage();
-}
-
-const btnReturnMenu = document.getElementById('btn-return-menu');
-btnReturnMenu?.addEventListener('click', handleReturnToMenu);
-
-// 📊 右上角：儀表/故障抽屜切換 (精準防抖與冒泡控制)
-const topMenuBtn = document.getElementById('top-menu-btn');
-const drawerPanel = document.getElementById('drawer-panel');
-
-topMenuBtn?.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    drawerPanel?.classList.toggle('open');
-});
-
-document.addEventListener('click', (e) => {
-    if (drawerPanel?.classList.contains('open') && !drawerPanel.contains(e.target) && !topMenuBtn.contains(e.target)) {
-        drawerPanel.classList.remove('open');
-    }
 });
 
 // ============================================================
