@@ -1,329 +1,73 @@
-/* ============================================================
-   J.A.R. Skybound - 極致視野與操控上移樣式表 v3.6.5
-   ============================================================ */
-
-:root {
-    --bg-dark: #070c14;
-    --panel-bg: rgba(9, 16, 26, 0.85);
-    --panel-border: rgba(0, 220, 255, 0.35);
-    --hud-cyan: #00f3ff;
-    --hud-green: #00ff88;
-    --hud-amber: #ffaa00;
-    --hud-red: #ff3344;
-    --font-avionics: -apple-system, BlinkMacSystemFont, 'SF Pro Text', Roboto, sans-serif;
-}
-
-* { 
-    box-sizing: border-box; 
-    margin: 0;
-    padding: 0;
-}
-
-body { 
-    overflow: hidden; 
-    background-color: var(--bg-dark); 
-    color: #fff; 
-    font-family: var(--font-avionics); 
-    user-select: none; 
-    -webkit-user-select: none;
-    touch-action: none;
-    width: 100vw;
-    height: 100vh;
-}
-
-/* 啟動選單 */
-#start-screen { 
-    position: absolute; 
-    top: 0; left: 0; 
-    width: 100vw; height: 100vh; 
-    background: radial-gradient(circle at center, #10223d 0%, #040810 100%); 
-    z-index: 100; 
-    display: flex; 
-    flex-direction: column; 
-    justify-content: space-between; 
-    align-items: center; 
-    padding: 24px 16px;
-}
-
-.header-bar { width: 100%; display: flex; justify-content: flex-end; }
-.pill-btn {
-    background: rgba(0, 243, 255, 0.15); 
-    border: 1px solid var(--hud-cyan);
-    color: var(--hud-cyan); 
-    padding: 6px 14px; 
-    border-radius: 20px;
-    font-size: 12px; 
-    font-weight: bold; 
-    cursor: pointer;
-}
-
-#ui-title { 
-    font-size: 1.8em; 
-    font-weight: 800;
-    color: #ffffff; 
-    text-shadow: 0 0 15px var(--hud-cyan); 
-    text-align: center;
-}
-
-.subtitle { color: #8fa0b5; font-size: 12px; text-align: center; margin-top: 4px; }
-
-.setup-grid { 
-    display: flex; 
-    flex-direction: column;
-    gap: 12px; 
-    width: 100%; 
-    max-width: 420px; 
-}
-
-.setup-card { 
-    background: var(--panel-bg); 
-    border: 1px solid var(--panel-border); 
-    border-radius: 10px; 
-    padding: 10px 12px; 
-    text-align: center; 
-}
-
-.setup-title { display: block; font-size: 11px; color: var(--hud-cyan); margin-bottom: 6px; font-weight: bold; }
-.opt-group { display: flex; gap: 6px; justify-content: center; }
-.opt-btn {
-    flex: 1; 
-    padding: 8px 4px; 
-    font-size: 11px; 
-    background: rgba(20, 32, 48, 0.7); 
-    border: 1px solid rgba(0, 220, 255, 0.2);
-    color: #8da2bb; 
-    border-radius: 6px; 
-    cursor: pointer; 
-}
-.opt-btn.active { 
-    background: var(--hud-cyan); 
-    color: #030810; 
-    border-color: var(--hud-cyan); 
-    font-weight: bold; 
-}
-
-.glow-btn {
-    background: linear-gradient(135deg, #00c3ff 0%, #0055ff 100%); 
-    border: none;
-    color: #fff; 
-    padding: 14px 32px; 
-    font-size: 15px; 
-    font-weight: bold;
-    border-radius: 30px; 
-    cursor: pointer; 
-    box-shadow: 0 0 20px rgba(0, 195, 255, 0.6);
-}
-
-/* 3D 容器與 HUD */
-#canvas-container { position: absolute; width: 100vw; height: 100vh; z-index: 1; }
-#hud-canvas { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 10; pointer-events: none; }
-
-/* 頂部極限貼頂狀態條 (top: 3px) */
-#telemetry-bar {
-    position: absolute; 
-    top: 3px; 
-    left: 50%; 
-    transform: translateX(-50%);
-    z-index: 20; 
-    background: rgba(5, 12, 22, 0.5); 
-    border: 1px solid rgba(0, 220, 255, 0.2);
-    border-radius: 12px; 
-    padding: 2px 8px; 
-    display: flex; 
-    gap: 6px;
-    font-size: 9.5px; 
-    color: var(--hud-cyan); 
-    backdrop-filter: blur(4px); 
-    pointer-events: none;
-    white-space: nowrap;
-}
-
-/* ⚙️ 右上角儀表折疊按鈕 (top: 3px, right: 4px) */
-#top-menu-btn {
+/* ================= 墜毀結算彈窗 (Crash Modal) ================= */
+#crash-modal {
     position: absolute;
-    top: 3px;
-    right: 4px;
-    z-index: 40;
-    background: rgba(6, 14, 25, 0.85);
-    border: 1px solid var(--hud-cyan);
-    color: var(--hud-cyan);
-    font-size: 10px;
-    font-weight: bold;
-    padding: 3px 6px;
-    border-radius: 4px;
-    cursor: pointer;
-    backdrop-filter: blur(6px);
-}
-
-/* 浮動抽屜選單 */
-#drawer-panel {
-    position: absolute;
-    top: 32px;
-    right: 4px;
-    z-index: 35;
-    display: none;
-    flex-direction: column;
-    gap: 6px;
-    max-height: calc(100vh - 80px);
-    overflow-y: auto;
-}
-
-#drawer-panel.open {
-    display: flex !important;
-}
-
-#eicas-display {
-    background: var(--panel-bg); 
-    border: 1px solid var(--panel-border);
-    border-radius: 6px; 
-    padding: 6px 8px; 
-    color: var(--hud-cyan);
-    font-size: 9.5px; 
-    backdrop-filter: blur(8px);
-}
-.eicas-title { font-weight: bold; color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.2); padding-bottom: 2px; margin-bottom: 3px; text-align: center; }
-.eicas-grid { display: flex; gap: 8px; }
-.eng-name { color: var(--hud-amber); font-weight: bold; }
-
-#ios-panel { display: flex; flex-direction: column; gap: 3px; }
-.ios-btn {
-    background: rgba(14, 24, 40, 0.9); 
-    color: #fff; 
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 4px 6px; 
-    border-radius: 4px; 
-    font-size: 9px; 
-    cursor: pointer; 
-}
-.active_fault { background: #e74c3c !important; border-color: #ff0000 !important; }
-
-#oscilloscope-container {
-    background: var(--panel-bg); 
-    border: 1px solid var(--panel-border);
-    border-radius: 6px; 
-    padding: 4px; 
-}
-.scope-header { display: flex; justify-content: space-between; font-size: 8.5px; margin-bottom: 2px; }
-.scope-toggle-btn { background: rgba(20,35,55,0.7); border: 1px solid rgba(0,220,255,0.3); color: #fff; font-size: 8px; padding: 1px 4px; border-radius: 2px; }
-#oscilloscope-canvas { display: block; width: 170px; height: 70px; background: rgba(3, 8, 15, 0.95); }
-
-/* ================= 觸控操控層 (全面上移 bottom: 68px) ================= */
-#touch-controls {
-    position: absolute; 
-    top: 0; left: 0; 
+    top: 0; left: 0;
     width: 100vw; height: 100vh;
-    z-index: 22; 
-    pointer-events: none;
-}
-
-#left-controls {
-    position: absolute; 
-    bottom: 68px; /* 🔼 顯著上移，徹底避開底部按鍵與手勢條 */
-    left: 6px; 
-    display: flex; 
-    gap: 5px;
-    align-items: flex-end; 
-    pointer-events: auto;
-}
-
-.throttle-container {
-    background: rgba(6, 14, 25, 0.55); 
-    border: 1px solid rgba(0, 220, 255, 0.3);
-    border-radius: 6px; 
-    padding: 5px 3px; 
-    display: flex; 
-    flex-direction: column;
-    align-items: center; 
-    gap: 3px; 
-    backdrop-filter: blur(4px);
-}
-
-.ctrl-label { font-size: 8.5px; color: var(--hud-cyan); font-weight: bold; }
-#touch-throttle { -webkit-appearance: slider-vertical; width: 16px; height: 80px; accent-color: #00ff88; }
-#thr-val-text { font-size: 9px; color: #00ff88; font-weight: bold; }
-
-.rudder-bar { display: flex; flex-direction: column; gap: 3px; }
-.pedal-btn {
-    background: rgba(12, 22, 38, 0.75); 
-    border: 1px solid rgba(0, 180, 255, 0.35);
-    color: var(--hud-cyan); 
-    width: 28px; 
-    height: 24px; 
-    border-radius: 4px;
-    font-size: 9px; 
-    font-weight: bold; 
-    cursor: pointer;
-}
-.pedal-btn:active { background: var(--hud-cyan); color: #000; }
-.brake-btn { border-color: rgba(255, 60, 70, 0.5); color: #ff4455; }
-.brake-btn:active { background: #ff3344; color: #fff; }
-
-#right-controls {
-    position: absolute; 
-    bottom: 68px; /* 🔼 顯著上移，操作極度舒適 */
-    right: 8px; 
-    pointer-events: auto;
-}
-
-#virtual-stick-zone {
-    width: 82px; 
-    height: 82px; 
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(0, 243, 255, 0.05) 0%, rgba(5, 16, 32, 0.55) 100%);
-    border: 1.5px solid rgba(0, 243, 255, 0.3); 
-    position: relative;
-    backdrop-filter: blur(4px);
-}
-
-#virtual-stick-knob {
-    width: 26px; 
-    height: 26px; 
-    border-radius: 50%;
-    background: radial-gradient(circle at 35% 35%, #00ffff 0%, #0077aa 100%);
-    position: absolute; 
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    box-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
-}
-
-/* 底部 MCP 窄版面板 (貼底，高度 34px) */
-.cockpit-glare-shield {
-    position: absolute; 
-    bottom: 0; left: 0; right: 0; 
-    height: 34px;
-    padding-bottom: env(safe-area-inset-bottom);
-    background: rgba(5, 10, 18, 0.95);
-    border-top: 1px solid rgba(0, 220, 255, 0.3);
+    background: rgba(10, 0, 0, 0.85);
+    z-index: 200;
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 25;
+    backdrop-filter: blur(10px);
+    transition: opacity 0.3s ease;
 }
 
-.mcp-panel {
-    display: flex; 
-    justify-content: center; 
-    align-items: center;
-    gap: 3px;
-    padding: 0 2px; 
-    overflow-x: auto;
+.modal-hidden {
+    display: none !important;
+}
+
+.crash-card {
+    background: rgba(25, 10, 15, 0.95);
+    border: 2px solid #ff3344;
+    border-radius: 14px;
+    padding: 24px;
+    width: 90%;
+    max-width: 360px;
+    text-align: center;
+    box-shadow: 0 0 35px rgba(255, 51, 68, 0.6);
+}
+
+.crash-icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+}
+
+#crash-title {
+    color: #ff3344;
+    font-size: 20px;
+    font-weight: 800;
+    margin-bottom: 8px;
+    text-shadow: 0 0 10px rgba(255, 51, 68, 0.8);
+}
+
+#crash-desc {
+    color: #cbdbee;
+    font-size: 12px;
+    margin-bottom: 14px;
+    line-height: 1.4;
+}
+
+.crash-stats {
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 11px;
+    color: #8da2bb;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 18px;
+    text-align: left;
+}
+
+.crash-stats b {
+    color: #ffdd00;
+    float: right;
+}
+
+.respawn-btn {
     width: 100%;
+    padding: 12px 20px;
+    font-size: 14px;
 }
-
-.mcp-btn {
-    padding: 2px 5px; 
-    font-size: 8.5px; 
-    border: 1px solid rgba(0, 200, 255, 0.3);
-    background: rgba(18, 28, 44, 0.85); 
-    color: #9ab0c7; 
-    border-radius: 3px; 
-    cursor: pointer;
-    font-weight: bold;
-}
-.mcp-btn.active { background: #00ff88; color: #000; }
-.mcp-btn.active_lnav { background: var(--hud-cyan); color: #000; }
-.mcp-btn.active_vnav { background: #ff00ff; color: #fff; }
-
-.mcp-group { display: flex; align-items: center; gap: 2px; font-size: 8.5px; color: var(--hud-cyan); }
-.mcp-val { background: #000; padding: 1px 3px; border: 1px solid rgba(0, 200, 255, 0.3); border-radius: 2px; min-width: 28px; text-align: center; }
-.mcp-step-btn { padding: 1px 4px; font-size: 8.5px; background: #141f30; border: 1px solid rgba(0, 200, 255, 0.3); color: var(--hud-cyan); cursor: pointer; }
