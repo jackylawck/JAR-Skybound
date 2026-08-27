@@ -1,5 +1,5 @@
 // ============================================================
-// fms.js - J.A.R. Skybound Pro FMS v1.3 (LNAV & VNAV 剖面計算)
+// fms.js - J.A.R. Skybound Pro 飛行管理系統 (FMS & VNAV)
 // ============================================================
 
 import { SIM_CONFIG } from './config.js';
@@ -7,10 +7,10 @@ import { SIM_CONFIG } from './config.js';
 class Waypoint {
     constructor(id, x, y, altConstraint = 10000, spdConstraint = 250) {
         this.id = id;
-        this.x = x; // 地軸米 (East)
-        this.y = y; // 地軸米 (North)
-        this.altConstraint = altConstraint; // 目標高度 (ft)
-        this.spdConstraint = spdConstraint; // 目標空速 (kts)
+        this.x = x;
+        this.y = y;
+        this.altConstraint = altConstraint;
+        this.spdConstraint = spdConstraint;
     }
 }
 
@@ -26,7 +26,11 @@ export class FMS {
         ];
 
         this.currentLegIndex = -1;
-        this.DESC_GRAD = Math.tan(SIM_CONFIG.FMS.DESCENT_ANGLE_DEG * Math.PI / 180);
+        // 防禦性讀取：若 SIM_CONFIG.FMS 不存在則自動回退為 3.0 度
+        const descentAngle = (SIM_CONFIG && SIM_CONFIG.FMS && SIM_CONFIG.FMS.DESCENT_ANGLE_DEG !== undefined) 
+            ? SIM_CONFIG.FMS.DESCENT_ANGLE_DEG 
+            : 3.0;
+        this.DESC_GRAD = Math.tan(descentAngle * Math.PI / 180);
     }
 
     findNearestWaypointIndex(s) {
@@ -62,7 +66,7 @@ export class FMS {
         const dy = currentWpt.y - s.y;
         const distToWpt = Math.hypot(dx, dy);
 
-        // 1. 動態航點切換與轉彎提前量 (Lead Turn)
+        // 1. 轉彎提前量 (Lead Turn)
         const speedMps = (s.speed || 250) * 0.514444;
         const dynamicCaptureDist = Math.max(1500, speedMps * 15);
 
@@ -75,7 +79,7 @@ export class FMS {
             }
         }
 
-        // 2. LNAV 航向計算
+        // 2. LNAV 航向指令
         const targetRadial = Math.atan2(dx, dy) * 180 / Math.PI;
         const targetHeading = (targetRadial + 360) % 360;
 
@@ -84,6 +88,10 @@ export class FMS {
         const distFt = distToWpt * 3.28084;
         const targetWptAlt = activeWpt.altConstraint;
         const altDelta = targetWptAlt - s.altitude;
+
+        const captureZone = SIM_CONFIG?.FMS?.CAPTURE_ZONE_FT ?? 500;
+        const spdLimitAlt = SIM_CONFIG?.FMS?.SPD_LIMIT_ALT ?? 10000;
+        const spdLimit10k = SIM_CONFIG?.FMS?.SPD_LIMIT_BELOW_10K ?? 250;
 
         let verticalPhase = 'CRUISE';
         let vnavAltCmd = s.altitude;
@@ -100,22 +108,21 @@ export class FMS {
             const idealPathAlt = targetWptAlt + (distFt * this.DESC_GRAD);
             verticalDeviation = s.altitude - idealPathAlt;
 
-            if (s.altitude < idealPathAlt - SIM_CONFIG.FMS.CAPTURE_ZONE_FT) {
-                vnavAltCmd = s.altitude; // 平飛等待截獲
+            if (s.altitude < idealPathAlt - captureZone) {
+                vnavAltCmd = s.altitude;
             } else {
-                vnavAltCmd = idealPathAlt; // 沿 3° 剖面下降
+                vnavAltCmd = idealPathAlt;
             }
 
-            if (s.altitude <= SIM_CONFIG.FMS.SPD_LIMIT_ALT) {
-                vnavSpdCmd = Math.min(SIM_CONFIG.FMS.SPD_LIMIT_BELOW_10K, activeWpt.spdConstraint);
+            if (s.altitude <= spdLimitAlt) {
+                vnavSpdCmd = Math.min(spdLimit10k, activeWpt.spdConstraint);
             } else {
                 vnavSpdCmd = activeWpt.spdConstraint;
             }
         } else {
             verticalPhase = 'CRUISE';
             vnavAltCmd = targetWptAlt;
-            vnavSpdCmd = (s.altitude <= SIM_CONFIG.FMS.SPD_LIMIT_ALT) ?
-                Math.min(SIM_CONFIG.FMS.SPD_LIMIT_BELOW_10K, activeWpt.spdConstraint) : activeWpt.spdConstraint;
+            vnavSpdCmd = (s.altitude <= spdLimitAlt) ? Math.min(spdLimit10k, activeWpt.spdConstraint) : activeWpt.spdConstraint;
             verticalDeviation = s.altitude - targetWptAlt;
         }
 
