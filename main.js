@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - J.A.R. Skybound v3.6.7 (徹底消除機身穿幫與純淨座艙視角)
+// main.js - J.A.R. Skybound v3.6.8 (智慧防墜、全雙語、夜航照明與墜毀結算)
 // ============================================================
 
 if (window.top !== window.self) {
@@ -26,28 +26,12 @@ class FlightDataRecorder {
         this.records.push({
             timestamp_s: timeSec.toFixed(2),
             alt_ft: s.altitude.toFixed(1),
-            alt_m: (s.altitude * UNITS.FT_TO_M).toFixed(1),
             ias_kt: s.speed.toFixed(1),
-            tas_mps: (s.speed * UNITS.KTS_TO_MPS).toFixed(1),
             mach: s.mach.toFixed(3),
             pitch_deg: s.pitch.toFixed(2),
             roll_deg: s.roll.toFixed(2),
             hdg_deg: s.heading.toFixed(2),
-            aoa_deg: s.aoa.toFixed(2),
-            beta_deg: s.beta.toFixed(2),
-            nz_g: s.gForce.toFixed(2),
-            elev_cmd: ctrl.elevator.toFixed(3),
-            ail_cmd: ctrl.aileron.toFixed(3),
-            rud_cmd: ctrl.rudder.toFixed(3),
-            thr_cmd: ctrl.throttle.toFixed(3),
-            brk_cmd: ctrl.brake.toFixed(2),
-            eng1_n1: s.engineData ? s.engineData.eng1_N1.toFixed(1) : 0,
-            eng1_ff: s.engineData ? s.engineData.eng1_FF.toFixed(0) : 0,
-            eng2_n1: s.engineData ? s.engineData.eng2_N1.toFixed(1) : 0,
-            eng2_ff: s.engineData ? s.engineData.eng2_FF.toFixed(0) : 0,
-            ap_master: ap.modes.AP_MASTER ? 1 : 0,
-            ap_lnav: ap.modes.LNAV ? 1 : 0,
-            ap_vnav: ap.modes.VNAV ? 1 : 0
+            nz_g: s.gForce.toFixed(2)
         });
     }
     exportCSV() {
@@ -128,10 +112,6 @@ class FlightOscilloscope {
         }
         ctx.stroke();
     }
-    toggle() {
-        this.isVisible = !this.isVisible;
-        this.canvas.style.display = this.isVisible ? 'block' : 'none';
-    }
 }
 
 const sound = new SoundEngine();
@@ -142,14 +122,16 @@ const fdr = new FlightDataRecorder(20);
 let lastFrameTime = performance.now();
 let s_buffer = { altitude: 10000, speed: 250, heading: 0, pitch: 0, roll: 0, x: 0, y: 0 };
 let physicsWorker = null;
+let isCrashed = false;
 
 const keyStateControls = { elevator: 0, aileron: 0, rudder: 0, throttle: 0.6, brake: 0, isManualThrottleInput: false };
 
-// 1. 雙語國際化
+// 1. 完整雙語即時切換
 function applyLanguage() {
     const lang = SIM_CONFIG.currentLang;
     const t = I18N[lang];
     const safeSet = (id, txt) => { const el = document.getElementById(id); if (el) el.innerText = txt; };
+    
     safeSet('ui-title', t.title);
     safeSet('ui-subtitle', t.subtitle);
     safeSet('start-btn', t.startBtn);
@@ -157,23 +139,36 @@ function applyLanguage() {
     safeSet('ui-mode-label', t.modeLabel);
     safeSet('ui-weather-label', t.weatherLabel);
     safeSet('ui-thr-label', t.throttle);
+    safeSet('top-menu-btn', t.menuBtn);
+    safeSet('ui-eicas-title', t.eicasTitle);
+    safeSet('ui-eng1-lbl', t.eng1Lbl);
+    safeSet('ui-eng2-lbl', t.eng2Lbl);
+    safeSet('btn-fdr-export', t.fdrBtn);
+    safeSet('btn-fault-eng1', t.fault1);
+    safeSet('btn-fault-eng2', t.fault2);
+    safeSet('crash-title', t.crashTitle);
+    safeSet('crash-desc', t.crashDesc);
+    safeSet('lbl-crash-spd', t.crashSpd);
+    safeSet('lbl-crash-vs', t.crashVs);
+    safeSet('btn-respawn', t.respawnBtn);
 
-    const levelBtns = document.querySelectorAll('#group-level .opt-btn');
-    if (levelBtns.length >= 3) {
-        levelBtns[0].innerText = t.modes.junior;
-        levelBtns[1].innerText = t.modes.advanced;
-        levelBtns[2].innerText = t.modes.captain;
-    }
-    const weatherBtns = document.querySelectorAll('#group-weather .opt-btn');
-    if (weatherBtns.length >= 4) {
-        weatherBtns[0].innerText = t.weather.day;
-        weatherBtns[1].innerText = t.weather.sunset;
-        weatherBtns[2].innerText = t.weather.night;
-        weatherBtns[3].innerText = t.weather.storm;
-    }
-    safeSet('btn-rud-left', t.rudderL);
-    safeSet('btn-rud-right', t.rudderR);
-    safeSet('btn-brake', t.brakes);
+    safeSet('opt-junior', t.modes.junior);
+    safeSet('opt-advanced', t.modes.advanced);
+    safeSet('opt-captain', t.modes.captain);
+    safeSet('opt-day', t.weather.day);
+    safeSet('opt-sunset', t.weather.sunset);
+    safeSet('opt-night', t.weather.night);
+    safeSet('opt-storm', t.weather.storm);
+    
+    updateTelemetryBar();
+}
+
+function updateTelemetryBar() {
+    const t = I18N[SIM_CONFIG.currentLang];
+    const telMode = document.getElementById('tel-mode');
+    const telEnv = document.getElementById('tel-env');
+    if (telMode) telMode.innerText = t.modes[SIM_CONFIG.currentLevel] || SIM_CONFIG.currentLevel;
+    if (telEnv) telEnv.innerText = t.weather[SIM_CONFIG.currentWeather] || SIM_CONFIG.currentWeather;
 }
 
 document.getElementById('btn-lang')?.addEventListener('click', () => {
@@ -182,14 +177,12 @@ document.getElementById('btn-lang')?.addEventListener('click', () => {
 });
 applyLanguage();
 
-// 2. 難度與氣象選擇
 document.querySelectorAll('#group-level .opt-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         document.querySelectorAll('#group-level .opt-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         SIM_CONFIG.currentLevel = btn.dataset.val;
-        const telMode = document.getElementById('tel-mode');
-        if (telMode) telMode.innerText = SIM_CONFIG.currentLevel.toUpperCase();
+        updateTelemetryBar();
         if (physicsWorker) physicsWorker.postMessage({ type: 'config', level: SIM_CONFIG.currentLevel, weather: SIM_CONFIG.currentWeather });
     });
 });
@@ -200,12 +193,13 @@ document.querySelectorAll('#group-weather .opt-btn').forEach(btn => {
         btn.classList.add('active');
         SIM_CONFIG.currentWeather = btn.dataset.val;
         applyWeather(SIM_CONFIG.currentWeather);
+        updateTelemetryBar();
         if (physicsWorker) physicsWorker.postMessage({ type: 'config', level: SIM_CONFIG.currentLevel, weather: SIM_CONFIG.currentWeather });
     });
 });
 
 // ============================================================
-// 3. 次世代 Three.js 渲染管線
+// 2. Three.js 渲染管線 (夜間增亮與城市微光)
 // ============================================================
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.2, 200000);
@@ -213,16 +207,16 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "hi
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
+renderer.toneMappingExposure = 1.2;
 document.getElementById('canvas-container')?.appendChild(renderer.domElement);
 
-const ambientLight = new THREE.AmbientLight(0xccddff, 0.7); 
+const ambientLight = new THREE.AmbientLight(0xccddff, 0.75); 
 scene.add(ambientLight);
 const sunLight = new THREE.DirectionalLight(0xfff8ee, 1.5); 
 sunLight.position.set(8000, 12000, 6000); 
 scene.add(sunLight);
 
-// 大氣散射天穹
+// 大氣天穹
 const skyGeo = new THREE.SphereGeometry(150000, 32, 20);
 const skyMat = new THREE.ShaderMaterial({
     vertexShader: `
@@ -260,7 +254,7 @@ const skyMat = new THREE.ShaderMaterial({
 const skyDome = new THREE.Mesh(skyGeo, skyMat);
 scene.add(skyDome);
 
-// 遠山山脊
+// 遠山
 const mountainGroup = new THREE.Group();
 const mtnGeo = new THREE.ConeGeometry(4500, 3200, 7);
 const mtnMat = new THREE.MeshLambertMaterial({ color: 0x334433, flatShading: true });
@@ -273,7 +267,7 @@ for (let a = 0; a < Math.PI * 2; a += 0.35) {
 }
 scene.add(mountainGroup);
 
-// 高精雙層大地地貌
+// 高精大地
 function createHighResTerrainTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 2048; canvas.height = 2048;
@@ -317,7 +311,7 @@ const ground = new THREE.Mesh(
 ground.rotation.x = -Math.PI / 2;
 scene.add(ground);
 
-// 動態反光海面
+// 反光海面
 const oceanGeo = new THREE.PlaneGeometry(80000, 120000);
 const oceanMat = new THREE.MeshPhongMaterial({
     color: 0x0f2d4a,
@@ -332,7 +326,7 @@ ocean.rotation.x = -Math.PI / 2;
 ocean.position.set(-50000, -0.5, 0);
 scene.add(ocean);
 
-// 跑道與機場地景
+// 跑道
 function createRunwayTexture() {
     const canvas = document.createElement('canvas');
     canvas.width = 1024; canvas.height = 4096;
@@ -362,6 +356,7 @@ runway.rotation.x = -Math.PI / 2; runway.position.set(0, 0.2, 3000); scene.add(r
 const taxiway = new THREE.Mesh(new THREE.PlaneGeometry(40, 6000), new THREE.MeshLambertMaterial({ color: 0x22262a }));
 taxiway.rotation.x = -Math.PI / 2; taxiway.position.set(130, 0.15, 3000); scene.add(taxiway);
 
+// 機場建築
 const airportGroup = new THREE.Group();
 const towerBase = new THREE.Mesh(new THREE.CylinderGeometry(4, 6, 45, 16), new THREE.MeshLambertMaterial({ color: 0xdde2e6 }));
 towerBase.position.set(200, 22.5, 3000);
@@ -372,7 +367,7 @@ terminal.position.set(240, 9, 2800);
 airportGroup.add(towerBase, towerTop, terminal);
 scene.add(airportGroup);
 
-// 發光跑道燈與 PAPI
+// 跑道燈
 function createGlowSpriteTexture(colorStr) {
     const canvas = document.createElement('canvas'); canvas.width = 64; canvas.height = 64;
     const ctx = canvas.getContext('2d');
@@ -406,38 +401,6 @@ for (let p = 0; p < 4; p++) {
     scene.add(sp); papiSprites.push(sp);
 }
 
-// 3D 客機外部模型 (預設隱藏以提供 100% 純淨開揚的第一人稱視野)
-const airplaneGroup = new THREE.Group();
-const planeBodyMat = new THREE.MeshStandardMaterial({ color: 0xf0f3f6, roughness: 0.35, metalness: 0.2 });
-const planeDarkMat = new THREE.MeshStandardMaterial({ color: 0x1a232f, roughness: 0.5 });
-
-const fuselage = new THREE.Mesh(new THREE.CylinderGeometry(1.9, 1.9, 32, 24), planeBodyMat);
-fuselage.rotation.x = Math.PI / 2;
-const noseCone = new THREE.Mesh(new THREE.ConeGeometry(1.9, 5, 24), planeBodyMat);
-noseCone.rotation.x = -Math.PI / 2; noseCone.position.set(0, 0, 18.5);
-const wingL = new THREE.Mesh(new THREE.BoxGeometry(15, 0.3, 4.5), planeBodyMat);
-wingL.position.set(-9, -0.2, 2); wingL.rotation.y = -0.35; wingL.rotation.z = 0.05;
-const wingR = new THREE.Mesh(new THREE.BoxGeometry(15, 0.3, 4.5), planeBodyMat);
-wingR.position.set(9, -0.2, 2); wingR.rotation.y = 0.35; wingR.rotation.z = -0.05;
-const wingletL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.6, 1.5), planeDarkMat);
-wingletL.position.set(-16.2, 0.6, 4.5);
-const wingletR = new THREE.Mesh(new THREE.BoxGeometry(0.2, 1.6, 1.5), planeDarkMat);
-wingletR.position.set(16.2, 0.6, 4.5);
-const vTail = new THREE.Mesh(new THREE.BoxGeometry(0.4, 5.5, 4.2), planeDarkMat);
-vTail.position.set(0, 3.8, -13); vTail.rotation.x = -0.4;
-const hTailL = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.25, 2.2), planeBodyMat);
-hTailL.position.set(-3.2, 0.6, -14); hTailL.rotation.y = -0.3;
-const hTailR = new THREE.Mesh(new THREE.BoxGeometry(5.5, 0.25, 2.2), planeBodyMat);
-hTailR.position.set(3.2, 0.6, -14); hTailR.rotation.y = 0.3;
-const engMesh1 = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 4.2, 16), planeDarkMat);
-engMesh1.rotation.x = Math.PI / 2; engMesh1.position.set(-5.4, -1.2, 2.5);
-const engMesh2 = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 0.9, 4.2, 16), planeDarkMat);
-engMesh2.rotation.x = Math.PI / 2; engMesh2.position.set(5.4, -1.2, 2.5);
-
-airplaneGroup.add(fuselage, noseCone, wingL, wingR, wingletL, wingletR, vTail, hTailL, hTailR, engMesh1, engMesh2);
-airplaneGroup.visible = false; // 🚫 第一人稱駕駛艙視角：隱藏外部機身，徹底消除機鼻與機翼穿幫
-scene.add(airplaneGroup);
-
 // 雲層
 function createProceduralCloudTexture() {
     const canvas = document.createElement('canvas'); canvas.width = 1024; canvas.height = 1024;
@@ -465,45 +428,46 @@ cloudLayer1.rotation.x = Math.PI / 2; cloudLayer1.position.y = 2000; scene.add(c
 const cloudLayer2 = new THREE.Mesh(new THREE.PlaneGeometry(150000, 150000), new THREE.MeshBasicMaterial({ map: cloudTex2, transparent: true, opacity: 0.32, depthWrite: false }));
 cloudLayer2.rotation.x = Math.PI / 2; cloudLayer2.position.y = 4200; scene.add(cloudLayer2);
 
+// 🌌 天氣環境與照明 (夜間增設地表可見微光，徹底告別黑屏)
 function applyWeather(mode) {
-    const envSpan = document.getElementById('tel-env');
     if (mode === 'day') {
         skyMat.uniforms.topColor.value.setHex(0x184c8a);
         skyMat.uniforms.horizonColor.value.setHex(0x9eccf8);
+        skyMat.uniforms.bottomColor.value.setHex(0x1a2618);
         scene.fog = new THREE.FogExp2(0xb2d6f8, 0.00003);
-        ambientLight.color.setHex(0xddeeff); ambientLight.intensity = 0.7;
-        sunLight.color.setHex(0xfff8ee); sunLight.intensity = 1.4;
+        ambientLight.color.setHex(0xddeeff); ambientLight.intensity = 0.75;
+        sunLight.color.setHex(0xfff8ee); sunLight.intensity = 1.5;
         cloudLayer1.material.opacity = 0.4;
-        if (envSpan) envSpan.innerText = 'DAY';
     } else if (mode === 'sunset') {
         skyMat.uniforms.topColor.value.setHex(0x2d1746);
         skyMat.uniforms.horizonColor.value.setHex(0xdd5e26);
+        skyMat.uniforms.bottomColor.value.setHex(0x150b05);
         scene.fog = new THREE.FogExp2(0xcc6633, 0.00005);
-        ambientLight.color.setHex(0xffaa88); ambientLight.intensity = 0.5;
-        sunLight.color.setHex(0xff5511); sunLight.intensity = 1.1;
+        ambientLight.color.setHex(0xffaa88); ambientLight.intensity = 0.6;
+        sunLight.color.setHex(0xff5511); sunLight.intensity = 1.2;
         cloudLayer1.material.opacity = 0.55;
-        if (envSpan) envSpan.innerText = 'SUNSET';
     } else if (mode === 'night') {
-        skyMat.uniforms.topColor.value.setHex(0x010308);
-        skyMat.uniforms.horizonColor.value.setHex(0x060f1e);
-        scene.fog = new THREE.FogExp2(0x030715, 0.00007);
-        ambientLight.color.setHex(0x223355); ambientLight.intensity = 0.2;
-        sunLight.intensity = 0.05;
-        cloudLayer1.material.opacity = 0.15;
-        if (envSpan) envSpan.innerText = 'NIGHT';
+        // 夜間微光：月光藍 + 地表可見度
+        skyMat.uniforms.topColor.value.setHex(0x050c18);
+        skyMat.uniforms.horizonColor.value.setHex(0x12243d);
+        skyMat.uniforms.bottomColor.value.setHex(0x0a1420);
+        scene.fog = new THREE.FogExp2(0x081324, 0.000045);
+        ambientLight.color.setHex(0x3a557a); ambientLight.intensity = 0.45; // 提高月光強度
+        sunLight.color.setHex(0x5577aa); sunLight.intensity = 0.25;
+        cloudLayer1.material.opacity = 0.2;
     } else if (mode === 'storm') {
-        skyMat.uniforms.topColor.value.setHex(0x11161d);
-        skyMat.uniforms.horizonColor.value.setHex(0x222d38);
-        scene.fog = new THREE.FogExp2(0x1f272e, 0.0002);
-        ambientLight.color.setHex(0x445566); ambientLight.intensity = 0.4;
-        sunLight.intensity = 0.2;
-        cloudLayer1.material.opacity = 0.85;
-        if (envSpan) envSpan.innerText = 'STORM';
+        skyMat.uniforms.topColor.value.setHex(0x161e28);
+        skyMat.uniforms.horizonColor.value.setHex(0x2f3c4a);
+        skyMat.uniforms.bottomColor.value.setHex(0x10171e);
+        scene.fog = new THREE.FogExp2(0x24303d, 0.0001);
+        ambientLight.color.setHex(0x607085); ambientLight.intensity = 0.55;
+        sunLight.color.setHex(0x778899); sunLight.intensity = 0.4;
+        cloudLayer1.material.opacity = 0.75;
     }
 }
-applyWeather('day');
+applyWeather(SIM_CONFIG.currentWeather);
 
-// 4. HUD 與示波器
+// 3. HUD 與示波器
 let hudCanvas = document.getElementById('hud-canvas');
 if (!hudCanvas) {
     hudCanvas = document.createElement('canvas');
@@ -538,7 +502,7 @@ document.getElementById('btn-fault-eng2')?.addEventListener('click', (e) => {
     if (eng2Fault) sound.speak("ENGINE 2 FLAMEOUT");
 });
 
-// 5. 虛擬搖桿
+// 4. 虛擬搖桿
 const stickZone = document.getElementById('virtual-stick-zone');
 const stickKnob = document.getElementById('virtual-stick-knob');
 let isStickActive = false;
@@ -601,7 +565,7 @@ window.addEventListener('mousemove', (e) => {
 });
 window.addEventListener('mouseup', resetStick);
 
-// 6. 鍵盤飛行控制
+// 5. 鍵盤飛行控制
 window.addEventListener('keydown', (e) => {
     if (ap.modes.AP_MASTER) { ap.toggleMode('AP_MASTER', s_buffer); updateMcpButtonsUI(); }
     if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') keyStateControls.elevator = -0.8;
@@ -635,7 +599,7 @@ document.getElementById('btn-rud-right')?.addEventListener('pointerup', () => ke
 document.getElementById('btn-brake')?.addEventListener('pointerdown', () => keyStateControls.brake = 1.0);
 document.getElementById('btn-brake')?.addEventListener('pointerup', () => keyStateControls.brake = 0);
 
-// 7. MCP 面板
+// 6. MCP 面板
 const btnAP = document.getElementById('btn-ap');
 const btnLNAV = document.getElementById('btn-lnav');
 const btnVNAV = document.getElementById('btn-vnav');
@@ -664,7 +628,46 @@ document.getElementById('hdg-dec')?.addEventListener('click', () => { ap.setTarg
 document.getElementById('alt-inc')?.addEventListener('click', () => { ap.setTarget('ALT', ap.targets.altitude + 500); updateMcpButtonsUI(); });
 document.getElementById('alt-dec')?.addEventListener('click', () => { ap.setTarget('ALT', ap.targets.altitude - 500); updateMcpButtonsUI(); });
 
-// 8. 模擬主迴圈
+// 💥 墜毀判定與重新起飛處理
+const crashModal = document.getElementById('crash-modal');
+const crashSpdVal = document.getElementById('crash-spd-val');
+const crashVsVal = document.getElementById('crash-vs-val');
+document.getElementById('btn-respawn')?.addEventListener('click', respawnFlight);
+
+function triggerCrash(speed, vspeedFpm) {
+    if (isCrashed) return;
+    isCrashed = true;
+    sound.speak("PULL UP CRASH");
+    if (crashSpdVal) crashSpdVal.innerText = `${Math.round(speed)} kt`;
+    if (crashVsVal) crashVsVal.innerText = `${Math.round(vspeedFpm)} fpm`;
+    if (crashModal) crashModal.classList.remove('modal-hidden');
+}
+
+function respawnFlight() {
+    isCrashed = false;
+    if (crashModal) crashModal.classList.add('modal-hidden');
+    keyStateControls.throttle = 0.65;
+    keyStateControls.elevator = 0;
+    keyStateControls.aileron = 0;
+    keyStateControls.rudder = 0;
+    if (throttleSlider) throttleSlider.value = "65";
+    if (thrValText) thrValText.innerText = "65%";
+    
+    // 重設航電與物理核心至安全巡航
+    ap.targets.altitude = 10000;
+    ap.targets.speed = 250;
+    ap.targets.heading = 360;
+    updateMcpButtonsUI();
+
+    if (physicsWorker) {
+        physicsWorker.postMessage({
+            type: 'respawn',
+            state: { x: 0, y: 0, altMeters: 3048, speedKts: 250, heading: 0, pitch: 0, roll: 0 }
+        });
+    }
+}
+
+// 7. 模擬主迴圈
 let cloudOffset = 0;
 let frameCount = 0;
 let lastFpsTime = performance.now();
@@ -682,7 +685,7 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
 
     physicsWorker.onmessage = (e) => {
         const s = e.data;
-        if (!s || typeof s !== 'object') return;
+        if (!s || typeof s !== 'object' || isCrashed) return;
         s_buffer = s;
 
         const now = performance.now();
@@ -698,15 +701,45 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
             lastFpsTime = now;
         }
 
+        const vspeedFpm = (s.dz ? -s.dz : 0) * UNITS.M_TO_FT * 60;
+
+        // 💥 墜毀判定 (觸地時下沉率 > 1200 fpm 或 俯角過大)
+        if (s.altitude <= 8 && (vspeedFpm < -1200 || Math.abs(s.pitch) > 15 || Math.abs(s.roll) > 25)) {
+            triggerCrash(s.speed, vspeedFpm);
+            return;
+        }
+
+        // 🤖 自動駕駛 (A/P) 強制自救改平邏輯
         const fmsCmd = fms.update(s);
-        const apCmds = ap.update(s, fmsCmd, dt);
+        let apCmds = null;
+        if (ap.modes.AP_MASTER) {
+            // 若飛機處於危險俯衝/大角度傾斜，強行自動改平
+            if (s.pitch < -10) ap.targets.altitude = Math.max(s.altitude + 2000, 10000);
+            apCmds = ap.update(s, fmsCmd, dt);
+        }
 
         let finalControls = { ...keyStateControls };
-        const apCfg = SIM_CONFIG.AUTOPILOT;
 
+        // 👶 學員/兒童模式（JUNIOR）智慧防墜機防護 (Fly-By-Wire)
+        if (SIM_CONFIG.currentLevel === 'junior') {
+            // 轉彎自動補升力：機翼側傾時，自動按傾角比例向上拉升降舵
+            const rollRad = THREE.MathUtils.degToRad(s.roll);
+            const liftComp = Math.abs(Math.sin(rollRad)) * 0.45;
+            finalControls.elevator += liftComp;
+
+            // 限制最大傾角
+            if (Math.abs(s.roll) > 28) finalControls.aileron = (s.roll > 0) ? -0.5 : 0.5;
+
+            // 低空自動抬頭保護
+            if (s.altitude < 1500 && s.pitch < 0) {
+                finalControls.elevator = Math.max(finalControls.elevator, 0.6);
+            }
+        }
+
+        // A/P 自動駕駛接管
         if (apCmds && ap.modes.AP_MASTER) {
-            if (Math.abs(keyStateControls.elevator) < apCfg.MANUAL_DEADZONE) finalControls.elevator = apCmds.elevator;
-            if (Math.abs(keyStateControls.aileron) < apCfg.MANUAL_DEADZONE) finalControls.aileron = apCmds.aileron;
+            if (Math.abs(keyStateControls.elevator) < SIM_CONFIG.AUTOPILOT.MANUAL_DEADZONE) finalControls.elevator = apCmds.elevator;
+            if (Math.abs(keyStateControls.aileron) < SIM_CONFIG.AUTOPILOT.MANUAL_DEADZONE) finalControls.aileron = apCmds.aileron;
             if (keyStateControls.isManualThrottleInput) {
                 ap.modes.SPD_HOLD = false; ap.modes.VNAV = false;
                 keyStateControls.isManualThrottleInput = false;
@@ -741,10 +774,9 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
             setVal('eicas-ff-2', Math.round(s.engineData.eng2_FF));
         }
 
-        const vspeedFpm = (s.dz ? -s.dz : 0) * UNITS.M_TO_FT * 60;
         sound.update(finalControls.throttle, s.speed, s.altitude, vspeedFpm, s.aoa, s.altitude <= 5);
 
-        // PAPI 盲降下滑指示燈
+        // PAPI 盲降指示燈
         const distToRwy = Math.hypot(s.x, s.y - 350);
         if (distToRwy > 100 && s.y < 350) {
             const currentGlideAngle = Math.atan2(s.altitude * 0.3048, distToRwy) * (180 / Math.PI);
@@ -761,7 +793,6 @@ document.getElementById('start-btn')?.addEventListener('click', async () => {
         const planeAltitudeM = s.altMeters !== undefined ? s.altMeters : s.altitude * UNITS.FT_TO_M;
         const posX = s.x, posY = Math.max(2.4, planeAltitudeM + 2.4), posZ = s.y;
 
-        // 第一人稱駕駛艙視角 (純淨無穿幫)
         camera.position.set(posX, posY, posZ);
         camera.rotation.order = 'YXZ';
         camera.rotation.y = THREE.MathUtils.degToRad(-s.heading);
