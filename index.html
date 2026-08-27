@@ -8,6 +8,7 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#1a2a4a">
 
+    <!-- 🛡️ 企業級強化 CSP -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
         script-src 'self' https://cdnjs.cloudflare.com 'unsafe-inline' blob:;
@@ -30,7 +31,9 @@
     <meta name="description" content="J.A.R. Skybound is an open-source, high-fidelity 6-DoF WebGL flight simulator.">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="jarSkybound192icon.png">
-    <link rel="stylesheet" href="style.css">
+    
+    <!-- ⚡ 加入版本參數 ?v=3.6.3 強制手機瀏覽器更新 CSS 快取 -->
+    <link rel="stylesheet" href="style.css?v=3.6.3">
 </head>
 <body>
 
@@ -84,9 +87,8 @@
     <!-- ⚙️ 右上角儀表折疊按鈕 -->
     <button id="top-menu-btn">📊 儀表 / 故障 ▼</button>
 
-    <!-- 浮動抽屜選單（預設折疊，點擊展開） -->
-    <div id="drawer-panel" class="collapsed">
-        <!-- EICAS -->
+    <!-- 浮動抽屜選單 (預設隱藏) -->
+    <div id="drawer-panel">
         <div id="eicas-display">
             <div class="eicas-title">ENGINE & FUEL (EICAS)</div>
             <div class="eicas-grid">
@@ -105,20 +107,18 @@
             </div>
         </div>
 
-        <!-- IOS 教官台 -->
         <div id="ios-panel">
             <button id="btn-fdr-export" class="ios-btn fdr-btn">📥 導出 FDR 黑匣子 (CSV)</button>
             <button id="btn-fault-eng1" class="ios-btn fault-btn">⚠️ 左發停車 (ENG 1 FAIL)</button>
             <button id="btn-fault-eng2" class="ios-btn fault-btn">⚠️ 右發停車 (ENG 2 FAIL)</button>
         </div>
 
-        <!-- 示波器 -->
         <div id="oscilloscope-container">
             <div class="scope-header">
                 <span id="scope-mode-label">AERO</span>
                 <button id="btn-scope-mode" class="scope-toggle-btn">切換通道</button>
             </div>
-            <canvas id="oscilloscope-canvas" width="180" height="75"></canvas>
+            <canvas id="oscilloscope-canvas" width="190" height="80"></canvas>
         </div>
     </div>
 
@@ -179,11 +179,19 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script type="module" src="main.js"></script>
 
-<!-- 抽屜選單展開/收起腳本 -->
 <script>
-    document.getElementById('top-menu-btn')?.addEventListener('click', () => {
-        const drawer = document.getElementById('drawer-panel');
-        if (drawer) drawer.classList.toggle('collapsed');
+    // 點擊右上角按鈕切換展開/隱藏
+    const menuBtn = document.getElementById('top-menu-btn');
+    const drawer = document.getElementById('drawer-panel');
+    menuBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        drawer?.classList.toggle('open');
+    });
+    // 點擊畫面其他地方自動收起
+    document.addEventListener('click', (e) => {
+        if (!drawer?.contains(e.target) && e.target !== menuBtn) {
+            drawer?.classList.remove('open');
+        }
     });
 </script>
 
