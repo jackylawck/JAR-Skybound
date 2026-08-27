@@ -1,5 +1,5 @@
 // ============================================================
-// config.js - 全域配置與完整中英雙語字典 v3.6.8
+// config.js - 全域配置與 100% 雙語字典 v3.6.9
 // ============================================================
 
 export const UNITS = {
@@ -72,6 +72,7 @@ export const I18N = {
         rudderR: "▶",
         brakes: "BRK",
         menuBtn: "📊 儀表 / 故障 ▼",
+        menuReturn: "選單",
         eicasTitle: "發動機與燃油 (EICAS)",
         eng1Lbl: "左發 1 (L)",
         eng2Lbl: "右發 2 (R)",
@@ -98,6 +99,7 @@ export const I18N = {
         rudderR: "▶",
         brakes: "BRK",
         menuBtn: "📊 AVIONICS / IOS ▼",
+        menuReturn: "MENU",
         eicasTitle: "ENGINE & FUEL (EICAS)",
         eng1Lbl: "ENG 1 (L)",
         eng2Lbl: "ENG 2 (R)",
