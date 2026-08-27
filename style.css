@@ -1,4 +1,7 @@
-* { box-sizing: border-box; }
+* { 
+    box-sizing: border-box; 
+}
+
 body { 
     margin: 0; 
     overflow: hidden; 
@@ -9,166 +12,484 @@ body {
     touch-action: none;
 }
 
+/* ================= 啟動畫面 ================= */
 #start-screen { 
-    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; 
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh; 
     background: radial-gradient(circle, #101e38 0%, #03060c 100%); 
-    z-index: 100; display: flex; flex-direction: column; 
-    justify-content: space-between; align-items: center; 
+    z-index: 100; 
+    display: flex; 
+    flex-direction: column; 
+    justify-content: space-between; 
+    align-items: center; 
     padding: 24px;
 }
 
-.header-bar { width: 100%; display: flex; justify-content: flex-end; }
+.header-bar { 
+    width: 100%; 
+    display: flex; 
+    justify-content: flex-end; 
+}
+
 .pill-btn {
-    background: rgba(0, 255, 255, 0.15); border: 1px solid #00ffff;
-    color: #00ffff; padding: 6px 16px; border-radius: 20px;
-    font-size: 13px; font-weight: bold; cursor: pointer;
+    background: rgba(0, 255, 255, 0.15); 
+    border: 1px solid #00ffff;
+    color: #00ffff; 
+    padding: 6px 16px; 
+    border-radius: 20px;
+    font-size: 13px; 
+    font-weight: bold; 
+    cursor: pointer;
 }
 
-#ui-title { font-size: 2.2em; color: #00ffff; text-shadow: 0 0 15px #00ffff; margin: 0; }
-.subtitle { color: #88a; border-top: 1px solid #334; padding-top: 8px; margin-top: 6px; font-size: 13px; text-align: center; }
+#ui-title { 
+    font-size: 2.2em; 
+    color: #00ffff; 
+    text-shadow: 0 0 15px #00ffff; 
+    margin: 0; 
+    text-align: center;
+}
 
-.setup-grid { display: flex; gap: 16px; width: 100%; max-width: 800px; justify-content: center; }
-.setup-card { background: rgba(255, 255, 255, 0.04); border: 1px solid #334; border-radius: 8px; padding: 12px 14px; flex: 1; text-align: center; }
-.setup-title { display: block; font-size: 12px; color: #00ffff; margin-bottom: 8px; font-weight: bold; }
-.opt-group { display: flex; gap: 6px; justify-content: center; }
+.subtitle { 
+    color: #88a; 
+    border-top: 1px solid #334; 
+    padding-top: 8px; 
+    margin-top: 6px; 
+    font-size: 13px; 
+    text-align: center; 
+}
+
+.setup-grid { 
+    display: flex; 
+    gap: 16px; 
+    width: 100%; 
+    max-width: 800px; 
+    justify-content: center; 
+}
+
+.setup-card { 
+    background: rgba(255, 255, 255, 0.04); 
+    border: 1px solid #334; 
+    border-radius: 8px; 
+    padding: 12px 14px; 
+    flex: 1; 
+    text-align: center; 
+}
+
+.setup-title { 
+    display: block; 
+    font-size: 12px; 
+    color: #00ffff; 
+    margin-bottom: 8px; 
+    font-weight: bold; 
+}
+
+.opt-group { 
+    display: flex; 
+    gap: 6px; 
+    justify-content: center; 
+}
+
 .opt-btn {
-    flex: 1; padding: 8px 4px; font-size: 12px; background: #111a26; border: 1px solid #22354d;
-    color: #889bb0; border-radius: 4px; cursor: pointer; transition: 0.2s;
+    flex: 1; 
+    padding: 8px 4px; 
+    font-size: 12px; 
+    background: #111a26; 
+    border: 1px solid #22354d;
+    color: #889bb0; 
+    border-radius: 4px; 
+    cursor: pointer; 
+    transition: 0.2s;
 }
-.opt-btn.active { background: #00ffff; color: #000; border-color: #00ffff; font-weight: bold; box-shadow: 0 0 10px rgba(0,255,255,0.4); }
+
+.opt-btn.active { 
+    background: #00ffff; 
+    color: #000; 
+    border-color: #00ffff; 
+    font-weight: bold; 
+    box-shadow: 0 0 10px rgba(0,255,255,0.4); 
+}
 
 .glow-btn {
-    background: linear-gradient(135deg, #00bbff, #0055ff); border: none;
-    color: #fff; padding: 14px 36px; font-size: 16px; font-weight: bold;
-    border-radius: 30px; cursor: pointer; box-shadow: 0 0 20px rgba(0,187,255,0.5);
+    background: linear-gradient(135deg, #00bbff, #0055ff); 
+    border: none;
+    color: #fff; 
+    padding: 14px 36px; 
+    font-size: 16px; 
+    font-weight: bold;
+    border-radius: 30px; 
+    cursor: pointer; 
+    box-shadow: 0 0 20px rgba(0,187,255,0.5);
     letter-spacing: 1px;
 }
 
-#canvas-container { position: absolute; width: 100vw; height: 100vh; z-index: 1; }
+/* ================= 模擬介面與 3D 畫布 ================= */
+#canvas-container { 
+    position: absolute; 
+    width: 100vw; 
+    height: 100vh; 
+    z-index: 1; 
+}
 
+#hud-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 15;
+    pointer-events: none;
+}
+
+/* 頂部 Telemetry 資訊條 */
 #telemetry-bar {
-    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-    z-index: 20; background: rgba(0, 10, 20, 0.65); border: 1px solid #005577;
-    border-radius: 20px; padding: 4px 16px; display: flex; gap: 16px;
-    font-size: 11px; color: #00ffcc; backdrop-filter: blur(4px); pointer-events: none;
+    position: absolute; 
+    top: 8px; 
+    left: 50%; 
+    transform: translateX(-50%);
+    z-index: 25; 
+    background: rgba(0, 10, 20, 0.75); 
+    border: 1px solid #005577;
+    border-radius: 20px; 
+    padding: 4px 16px; 
+    display: flex; 
+    gap: 16px;
+    font-size: 11px; 
+    color: #00ffcc; 
+    backdrop-filter: blur(4px); 
+    pointer-events: none;
 }
 
-#cockpit-overlay { position: absolute; width: 100vw; height: 100vh; z-index: 5; pointer-events: none; }
-.cockpit-frame-left, .cockpit-frame-right {
-    position: absolute; top: 0; height: 100%; width: 3.5vw;
-    background: linear-gradient(to right, #050505, #151515, #050505);
-    border-right: 1.5px solid #222;
+/* ================= 駕駛艙與底部 MCP 面板 ================= */
+#cockpit-overlay { 
+    position: absolute; 
+    width: 100vw; 
+    height: 100vh; 
+    z-index: 20; 
+    pointer-events: none; 
 }
-.cockpit-frame-right { right: 0; border-right: none; border-left: 1.5px solid #222; }
+
+.cockpit-frame-left, .cockpit-frame-right {
+    position: absolute; 
+    top: 0; 
+    height: 100%; 
+    width: 2.5vw;
+    background: linear-gradient(to right, #050505, #151515, #050505);
+    border-right: 1px solid #222;
+}
+
+.cockpit-frame-right { 
+    right: 0; 
+    border-right: none; 
+    border-left: 1px solid #222; 
+}
+
 .cockpit-glare-shield {
-    position: absolute; bottom: 0; left: 3.5vw; right: 3.5vw; height: 13vh;
-    background: #080c12; border-radius: 16px 16px 0 0;
-    box-shadow: 0 -10px 25px rgba(0,0,0,0.9); border-top: 1.5px solid #1a293a;
+    position: absolute; 
+    bottom: 0; 
+    left: 0; 
+    right: 0; 
+    height: 48px;
+    background: rgba(8, 12, 18, 0.95);
+    border-top: 1.5px solid #00aaaa;
+    box-shadow: 0 -8px 20px rgba(0,0,0,0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
 }
 
 .mcp-panel {
-    display: flex; justify-content: space-around; align-items: center;
-    padding: 6px 16px; pointer-events: auto;
+    display: flex; 
+    justify-content: center; 
+    align-items: center;
+    gap: 10px;
+    padding: 0 10px; 
+    pointer-events: auto;
+    width: 100%;
+    max-width: 950px;
 }
-.mcp-btn {
-    padding: 4px 12px; font-size: 11px; border: 1px solid #445;
-    background: #151c24; color: #889; border-radius: 3px; cursor: pointer;
-}
-.mcp-btn.active { background: #00ff00; color: #000; border-color: #00ff00; box-shadow: 0 0 8px #00ff00; }
-.mcp-btn.active_lnav { background: #00ffff; color: #000; border-color: #00ffff; box-shadow: 0 0 8px #00ffff; }
-.mcp-btn.active_vnav { background: #ff00ff; color: #fff; border-color: #ff00ff; box-shadow: 0 0 8px #ff00ff; }
-.mcp-group { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #0ff; }
-.mcp-val { background: #000; color: #0ff; padding: 2px 4px; border: 1px solid #005555; min-width: 40px; text-align: center; }
-.mcp-step-btn { padding: 2px 6px; font-size: 11px; background: #222; border: 1px solid #444; color: #0ff; cursor: pointer; }
 
+.mcp-btn {
+    padding: 4px 10px; 
+    font-size: 11px; 
+    border: 1px solid #445;
+    background: #151c24; 
+    color: #889; 
+    border-radius: 3px; 
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.mcp-btn.active { 
+    background: #00ff00; 
+    color: #000; 
+    border-color: #00ff00; 
+    box-shadow: 0 0 8px #00ff00; 
+}
+
+.mcp-btn.active_lnav { 
+    background: #00ffff; 
+    color: #000; 
+    border-color: #00ffff; 
+    box-shadow: 0 0 8px #00ffff; 
+}
+
+.mcp-btn.active_vnav { 
+    background: #ff00ff; 
+    color: #fff; 
+    border-color: #ff00ff; 
+    box-shadow: 0 0 8px #ff00ff; 
+}
+
+.mcp-group { 
+    display: flex; 
+    align-items: center; 
+    gap: 3px; 
+    font-size: 11px; 
+    color: #0ff; 
+}
+
+.mcp-label {
+    font-weight: bold;
+}
+
+.mcp-val { 
+    background: #000; 
+    color: #0ff; 
+    padding: 2px 4px; 
+    border: 1px solid #005555; 
+    min-width: 38px; 
+    text-align: center; 
+}
+
+.mcp-step-btn { 
+    padding: 2px 5px; 
+    font-size: 11px; 
+    background: #222; 
+    border: 1px solid #444; 
+    color: #0ff; 
+    cursor: pointer; 
+}
+
+/* ================= 觸控操作層 (搖桿/推桿) ================= */
 #touch-controls {
-    position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;
-    z-index: 16; pointer-events: none;
+    position: absolute; 
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh;
+    z-index: 22; 
+    pointer-events: none;
 }
 
 #left-controls {
-    position: absolute; bottom: 15vh; left: 16px; display: flex; gap: 10px;
-    align-items: flex-end; pointer-events: auto;
+    position: absolute; 
+    bottom: 58px; 
+    left: 12px; 
+    display: flex; 
+    gap: 8px;
+    align-items: flex-end; 
+    pointer-events: auto;
 }
+
 .throttle-container {
-    background: rgba(0, 20, 35, 0.45); border: 1px solid rgba(0, 170, 255, 0.4);
-    border-radius: 12px; padding: 8px 6px; display: flex; flex-direction: column;
-    align-items: center; gap: 4px; backdrop-filter: blur(2px);
-}
-.ctrl-label { font-size: 10px; color: #00aaff; font-weight: bold; }
-#touch-throttle {
-    -webkit-appearance: slider-vertical;
-    width: 22px; height: 110px; accent-color: #00ffcc;
-}
-#thr-val-text { font-size: 10px; color: #00ffcc; font-weight: bold; }
-
-.rudder-bar { display: flex; flex-direction: column; gap: 6px; }
-.pedal-btn {
-    background: rgba(10, 25, 45, 0.55); border: 1px solid rgba(0, 136, 204, 0.5);
-    color: #00ffff; width: 44px; height: 34px; border-radius: 6px;
-    font-size: 11px; font-weight: bold; cursor: pointer;
-}
-.pedal-btn:active { background: #00ffff; color: #000; }
-.brake-btn { border-color: rgba(255, 85, 85, 0.5); color: #ff5555; }
-.brake-btn:active { background: #ff5555; color: #fff; }
-
-#right-controls {
-    position: absolute; bottom: 15vh; right: 16px; pointer-events: auto;
-}
-#virtual-stick-zone {
-    width: 120px; height: 120px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(0, 170, 255, 0.05) 0%, rgba(0, 30, 60, 0.4) 100%);
-    border: 1.5px solid rgba(0, 255, 255, 0.3); position: relative;
+    background: rgba(0, 20, 35, 0.55); 
+    border: 1px solid rgba(0, 170, 255, 0.4);
+    border-radius: 10px; 
+    padding: 6px 5px; 
+    display: flex; 
+    flex-direction: column;
+    align-items: center; 
+    gap: 4px; 
     backdrop-filter: blur(2px);
 }
+
+.ctrl-label { 
+    font-size: 10px; 
+    color: #00aaff; 
+    font-weight: bold; 
+}
+
+#touch-throttle {
+    -webkit-appearance: slider-vertical;
+    width: 20px; 
+    height: 100px; 
+    accent-color: #00ffcc;
+}
+
+#thr-val-text { 
+    font-size: 10px; 
+    color: #00ffcc; 
+    font-weight: bold; 
+}
+
+.rudder-bar { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 5px; 
+}
+
+.pedal-btn {
+    background: rgba(10, 25, 45, 0.65); 
+    border: 1px solid rgba(0, 136, 204, 0.5);
+    color: #00ffff; 
+    width: 38px; 
+    height: 30px; 
+    border-radius: 5px;
+    font-size: 11px; 
+    font-weight: bold; 
+    cursor: pointer;
+}
+
+.pedal-btn:active { 
+    background: #00ffff; 
+    color: #000; 
+}
+
+.brake-btn { 
+    border-color: rgba(255, 85, 85, 0.5); 
+    color: #ff5555; 
+}
+
+.brake-btn:active { 
+    background: #ff5555; 
+    color: #fff; 
+}
+
+#right-controls {
+    position: absolute; 
+    bottom: 58px; 
+    right: 16px; 
+    pointer-events: auto;
+}
+
+#virtual-stick-zone {
+    width: 110px; 
+    height: 110px; 
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0, 170, 255, 0.08) 0%, rgba(0, 30, 60, 0.45) 100%);
+    border: 1.5px solid rgba(0, 255, 255, 0.3); 
+    position: relative;
+    backdrop-filter: blur(2px);
+}
+
 #virtual-stick-knob {
-    width: 40px; height: 40px; border-radius: 50%;
-    background: linear-gradient(135deg, rgba(0,255,255,0.8), rgba(0,119,170,0.8));
-    position: absolute; top: 50%; left: 50%;
+    width: 36px; 
+    height: 36px; 
+    border-radius: 50%;
+    background: linear-gradient(135deg, rgba(0,255,255,0.85), rgba(0,119,170,0.85));
+    position: absolute; 
+    top: 50%; 
+    left: 50%;
     transform: translate(-50%, -50%);
     box-shadow: 0 0 10px rgba(0,255,255,0.5);
 }
 
-/* EICAS 儀表面板 */
+/* ================= 儀表與控制台 ================= */
+/* EICAS 發動機視窗 */
 #eicas-display {
-    position: absolute; top: 45px; left: 15px;
-    background: rgba(10, 20, 35, 0.85); border: 1px solid rgba(0, 200, 255, 0.3);
-    border-radius: 6px; padding: 8px 12px; color: #00ffcc;
-    font-size: 11px; z-index: 20; pointer-events: none;
+    position: absolute; 
+    top: 42px; 
+    left: 12px;
+    background: rgba(10, 20, 35, 0.85); 
+    border: 1px solid rgba(0, 200, 255, 0.3);
+    border-radius: 6px; 
+    padding: 6px 10px; 
+    color: #00ffcc;
+    font-size: 10px; 
+    z-index: 25; 
+    pointer-events: none;
 }
-.eicas-title { font-weight: bold; color: #fff; border-bottom: 1px solid rgba(255, 255, 255, 0.2); margin-bottom: 5px; text-align: center; }
-.eicas-grid { display: flex; gap: 15px; }
-.eng-name { color: #ffaa00; font-weight: bold; display: block; margin-bottom: 2px; }
 
-/* 教官故障注入 (IOS) & 黑匣子導出 */
-#ios-panel {
-    position: absolute; top: 45px; right: 15px;
-    display: flex; flex-direction: column; gap: 6px; z-index: 25;
+.eicas-title { 
+    font-weight: bold; 
+    color: #fff; 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2); 
+    margin-bottom: 4px; 
+    text-align: center; 
 }
+
+.eicas-grid { 
+    display: flex; 
+    gap: 12px; 
+}
+
+.eng-name { 
+    color: #ffaa00; 
+    font-weight: bold; 
+    display: block; 
+    margin-bottom: 2px; 
+}
+
+/* 教官台 (IOS) & 黑匣子導出 */
+#ios-panel {
+    position: absolute; 
+    top: 42px; 
+    right: 12px;
+    display: flex; 
+    flex-direction: column; 
+    gap: 5px; 
+    z-index: 25;
+}
+
 .ios-btn {
-    background: rgba(20, 30, 45, 0.85); color: #fff; border: 1px solid rgba(255, 255, 255, 0.3);
-    padding: 6px 12px; border-radius: 4px; font-size: 11px; cursor: pointer; backdrop-filter: blur(4px);
+    background: rgba(20, 30, 45, 0.85); 
+    color: #fff; 
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 5px 10px; 
+    border-radius: 4px; 
+    font-size: 10px; 
+    cursor: pointer; 
+    backdrop-filter: blur(4px);
     transition: all 0.2s ease;
 }
+
 .fdr-btn:hover { background: #0088cc; }
 .fault-btn:hover { background: #cc3333; }
 .active_fault { background: #e74c3c !important; border-color: #ff0000 !important; animation: blink 1s infinite; }
 
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
 
-/* 示波器面板 */
+/* 示波器面板 (移至推桿右側避免重疊) */
 #oscilloscope-container {
-    position: absolute; bottom: 15px; left: 15px;
-    background: rgba(5, 15, 25, 0.9); border: 1px solid rgba(0, 150, 200, 0.4);
-    border-radius: 6px; padding: 6px; z-index: 20;
+    position: absolute; 
+    bottom: 58px; 
+    left: 110px;
+    background: rgba(5, 15, 25, 0.85); 
+    border: 1px solid rgba(0, 150, 200, 0.4);
+    border-radius: 6px; 
+    padding: 5px; 
+    z-index: 22;
 }
+
 .scope-header {
-    display: flex; justify-content: space-between; align-items: center;
-    color: #00ffcc; font-size: 10px; margin-bottom: 4px;
+    display: flex; 
+    justify-content: space-between; 
+    align-items: center;
+    color: #00ffcc; 
+    font-size: 10px; 
+    margin-bottom: 3px;
 }
-.scope-btns { display: flex; gap: 4px; }
+
+.scope-btns { 
+    display: flex; 
+    gap: 4px; 
+}
+
 .scope-toggle-btn {
-    background: transparent; border: 1px solid rgba(0, 200, 255, 0.3);
-    color: #fff; font-size: 9px; border-radius: 3px; cursor: pointer;
+    background: transparent; 
+    border: 1px solid rgba(0, 200, 255, 0.3);
+    color: #fff; 
+    font-size: 9px; 
+    border-radius: 3px; 
+    cursor: pointer;
 }
-#oscilloscope-canvas { display: block; border: 1px solid rgba(0, 150, 200, 0.2); border-radius: 4px; }
+
+#oscilloscope-canvas { 
+    display: block; 
+    border: 1px solid rgba(0, 150, 200, 0.2); 
+    border-radius: 3px; 
+}
