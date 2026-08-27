@@ -318,3 +318,31 @@ setInterval(() => {
         dz: state[5]
     });
 }, 1000 * fixedDt);
+
+// 在 physics.js 中增加接收主執行緒的難度配置
+let currentLevel = 'advanced';
+let currentLevelCfg = { stabilityAssist: 0.3, stallProtection: false, windMultiplier: 0.5, liftBoost: 1.0 };
+
+self.onmessage = function (e) {
+    if (e.data.type === 'config') {
+        currentLevel = e.data.level || 'advanced';
+        if (currentLevel === 'junior') {
+            currentLevelCfg = { stabilityAssist: 0.95, stallProtection: true, windMultiplier: 0.0, liftBoost: 1.3 };
+        } else if (currentLevel === 'captain') {
+            currentLevelCfg = { stabilityAssist: 0.0, stallProtection: false, windMultiplier: 1.3, liftBoost: 1.0 };
+        } else {
+            currentLevelCfg = { stabilityAssist: 0.3, stallProtection: false, windMultiplier: 0.6, liftBoost: 1.0 };
+        }
+
+        // 天氣側風強度
+        if (e.data.weather === 'storm') {
+            windField.meanEast = 14.0 * currentLevelCfg.windMultiplier; // 強側風約 27 kts
+            windField.meanNorth = 6.0 * currentLevelCfg.windMultiplier;
+        } else if (e.data.weather === 'night' || e.data.weather === 'sunset') {
+            windField.meanEast = 4.0 * currentLevelCfg.windMultiplier;
+        } else {
+            windField.meanEast = 2.0 * currentLevelCfg.windMultiplier;
+        }
+    }
+    // ... 其餘 input 與 controls 邏輯保持不變 ...
+};
