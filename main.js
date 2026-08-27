@@ -1,5 +1,5 @@
 // ============================================================
-// main.js - J.A.R. Skybound v3.6.9 (橫屏修正、返回選單與 100% 雙語)
+// main.js - J.A.R. Skybound v3.7.1 (全雙語覆蓋 + 觸控返回選單修復)
 // ============================================================
 
 if (window.top !== window.self) {
@@ -35,7 +35,10 @@ class FlightDataRecorder {
         });
     }
     exportCSV() {
-        if (this.records.length === 0) return alert("No flight data recorded!");
+        if (this.records.length === 0) {
+            alert(SIM_CONFIG.currentLang === 'zh' ? "尚無飛行數據可導出！" : "No flight data recorded!");
+            return;
+        }
         const sanitize = (val) => {
             const str = String(val);
             return (/^[=+\-@\t\r]/.test(str)) ? `'${str}` : str;
@@ -123,10 +126,11 @@ let lastFrameTime = performance.now();
 let s_buffer = { altitude: 10000, speed: 250, heading: 0, pitch: 0, roll: 0, x: 0, y: 0 };
 let physicsWorker = null;
 let isCrashed = false;
+let isSimRunning = false;
 
 const keyStateControls = { elevator: 0, aileron: 0, rudder: 0, throttle: 0.6, brake: 0, isManualThrottleInput: false };
 
-// 1. 100% 完整雙語即時切換
+// 1. 100% 完整雙語切換與 DOM 即時同步
 function applyLanguage() {
     const lang = SIM_CONFIG.currentLang;
     const t = I18N[lang];
@@ -144,6 +148,7 @@ function applyLanguage() {
     safeSet('ui-eicas-title', t.eicasTitle);
     safeSet('ui-eng1-lbl', t.eng1Lbl);
     safeSet('ui-eng2-lbl', t.eng2Lbl);
+    safeSet('lbl-scope-toggle', t.scopeToggle);
     safeSet('btn-fdr-export', t.fdrBtn);
     safeSet('btn-fault-eng1', t.fault1);
     safeSet('btn-fault-eng2', t.fault2);
@@ -168,18 +173,21 @@ function updateTelemetryBar() {
     const t = I18N[SIM_CONFIG.currentLang];
     const telMode = document.getElementById('tel-mode');
     const telEnv = document.getElementById('tel-env');
-    if (telMode) telMode.innerText = t.modes[SIM_CONFIG.currentLevel] || SIM_CONFIG.currentLevel;
-    if (telEnv) telEnv.innerText = t.weather[SIM_CONFIG.currentWeather] || SIM_CONFIG.currentWeather;
+    if (telMode) telMode.innerText = t.modes[SIM_CONFIG.currentLevel] || SIM_CONFIG.currentLevel.toUpperCase();
+    if (telEnv) telEnv.innerText = t.weather[SIM_CONFIG.currentWeather] || SIM_CONFIG.currentWeather.toUpperCase();
 }
 
-document.getElementById('btn-lang')?.addEventListener('click', () => {
+// 點擊語言按鈕
+document.getElementById('btn-lang')?.addEventListener('click', (e) => {
+    e.preventDefault();
     SIM_CONFIG.currentLang = (SIM_CONFIG.currentLang === 'zh') ? 'en' : 'zh';
     applyLanguage();
 });
 applyLanguage();
 
 document.querySelectorAll('#group-level .opt-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
         document.querySelectorAll('#group-level .opt-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         SIM_CONFIG.currentLevel = btn.dataset.val;
@@ -189,7 +197,8 @@ document.querySelectorAll('#group-level .opt-btn').forEach(btn => {
 });
 
 document.querySelectorAll('#group-weather .opt-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', (e) => {
+        e.preventDefault();
         document.querySelectorAll('#group-weather .opt-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         SIM_CONFIG.currentWeather = btn.dataset.val;
@@ -199,12 +208,21 @@ document.querySelectorAll('#group-weather .opt-btn').forEach(btn => {
     });
 });
 
-// 🏠 返回首頁選單 (PWA 專用)
-document.getElementById('btn-return-menu')?.addEventListener('click', () => {
+// 🏠 返回首頁選單邏輯 (支援 pointerdown / click 雙重響應)
+function handleReturnToMenu(e) {
+    if (e) { e.preventDefault(); e.stopPropagation(); }
     const startScreen = document.getElementById('start-screen');
-    if (startScreen) startScreen.style.display = 'flex';
+    if (startScreen) {
+        startScreen.style.display = 'flex';
+        startScreen.style.zIndex = '999';
+    }
     document.getElementById('drawer-panel')?.classList.remove('open');
-});
+    applyLanguage();
+}
+
+const btnReturnMenu = document.getElementById('btn-return-menu');
+btnReturnMenu?.addEventListener('pointerdown', handleReturnToMenu);
+btnReturnMenu?.addEventListener('click', handleReturnToMenu);
 
 // ============================================================
 // 2. Three.js 渲染管線
@@ -364,6 +382,7 @@ runway.rotation.x = -Math.PI / 2; runway.position.set(0, 0.2, 3000); scene.add(r
 const taxiway = new THREE.Mesh(new THREE.PlaneGeometry(40, 6000), new THREE.MeshLambertMaterial({ color: 0x22262a }));
 taxiway.rotation.x = -Math.PI / 2; taxiway.position.set(130, 0.15, 3000); scene.add(taxiway);
 
+// 機場建築
 const airportGroup = new THREE.Group();
 const towerBase = new THREE.Mesh(new THREE.CylinderGeometry(4, 6, 45, 16), new THREE.MeshLambertMaterial({ color: 0xdde2e6 }));
 towerBase.position.set(200, 22.5, 3000);
@@ -490,17 +509,25 @@ const hud = new HUD(hudCanvas);
 
 const oscCanvas = document.getElementById('oscilloscope-canvas');
 const oscilloscope = new FlightOscilloscope(oscCanvas);
-document.getElementById('btn-scope-mode')?.addEventListener('click', () => oscilloscope.switchMode());
-document.getElementById('btn-fdr-export')?.addEventListener('click', () => fdr.exportCSV());
+document.getElementById('btn-scope-mode')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    oscilloscope.switchMode();
+});
+document.getElementById('btn-fdr-export')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    fdr.exportCSV();
+});
 
 let eng1Fault = false, eng2Fault = false;
 document.getElementById('btn-fault-eng1')?.addEventListener('click', (e) => {
+    e.preventDefault();
     eng1Fault = !eng1Fault;
     e.target.classList.toggle('active_fault', eng1Fault);
     if (physicsWorker) physicsWorker.postMessage({ type: 'fault', target: 'eng1', active: eng1Fault });
     if (eng1Fault) sound.speak("ENGINE 1 FLAMEOUT");
 });
 document.getElementById('btn-fault-eng2')?.addEventListener('click', (e) => {
+    e.preventDefault();
     eng2Fault = !eng2Fault;
     e.target.classList.toggle('active_fault', eng2Fault);
     if (physicsWorker) physicsWorker.postMessage({ type: 'fault', target: 'eng2', active: eng2Fault });
@@ -671,130 +698,140 @@ function respawnFlight() {
     }
 }
 
-// 7. 模擬主迴圈
-let cloudOffset = 0;
-let frameCount = 0;
-let lastFpsTime = performance.now();
-
-document.getElementById('start-btn')?.addEventListener('click', async () => {
+// 7. 啟動/進入駕駛艙 (支援重複點擊從選單切換回到飛行)
+document.getElementById('start-btn')?.addEventListener('click', async (e) => {
+    e.preventDefault();
     sound.init();
     if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-        try { await DeviceOrientationEvent.requestPermission(); } catch (e) { console.error(e); }
+        try { await DeviceOrientationEvent.requestPermission(); } catch (err) { console.error(err); }
     }
     const startScreen = document.getElementById('start-screen');
     if (startScreen) startScreen.style.display = 'none';
 
-    physicsWorker = new Worker('physics.js');
+    applyLanguage();
+
+    if (!physicsWorker) {
+        physicsWorker = new Worker('physics.js');
+        physicsWorker.onmessage = handlePhysicsMessage;
+    }
+
     physicsWorker.postMessage({ type: 'config', level: SIM_CONFIG.currentLevel, weather: SIM_CONFIG.currentWeather });
 
-    physicsWorker.onmessage = (e) => {
-        const s = e.data;
-        if (!s || typeof s !== 'object' || isCrashed) return;
-        s_buffer = s;
-
-        const now = performance.now();
-        const dt = (now - lastFrameTime) / 1000;
-        lastFrameTime = now;
-
-        frameCount++;
-        if (now - lastFpsTime >= 1000) {
-            const currentFps = Math.round((frameCount * 1000) / (now - lastFpsTime));
-            const telFps = document.getElementById('tel-fps');
-            if (telFps) telFps.innerText = `FPS: ${currentFps}`;
-            frameCount = 0;
-            lastFpsTime = now;
-        }
-
-        const vspeedFpm = (s.dz ? -s.dz : 0) * UNITS.M_TO_FT * 60;
-
-        if (s.altitude <= 8 && (vspeedFpm < -1200 || Math.abs(s.pitch) > 15 || Math.abs(s.roll) > 25)) {
-            triggerCrash(s.speed, vspeedFpm);
-            return;
-        }
-
-        const fmsCmd = fms.update(s);
-        let apCmds = null;
-        if (ap.modes.AP_MASTER) {
-            if (s.pitch < -10) ap.targets.altitude = Math.max(s.altitude + 2000, 10000);
-            apCmds = ap.update(s, fmsCmd, dt);
-        }
-
-        let finalControls = { ...keyStateControls };
-
-        if (SIM_CONFIG.currentLevel === 'junior') {
-            const rollRad = THREE.MathUtils.degToRad(s.roll);
-            const liftComp = Math.abs(Math.sin(rollRad)) * 0.45;
-            finalControls.elevator += liftComp;
-            if (Math.abs(s.roll) > 28) finalControls.aileron = (s.roll > 0) ? -0.5 : 0.5;
-            if (s.altitude < 1500 && s.pitch < 0) {
-                finalControls.elevator = Math.max(finalControls.elevator, 0.6);
-            }
-        }
-
-        if (apCmds && ap.modes.AP_MASTER) {
-            if (Math.abs(keyStateControls.elevator) < SIM_CONFIG.AUTOPILOT.MANUAL_DEADZONE) finalControls.elevator = apCmds.elevator;
-            if (Math.abs(keyStateControls.aileron) < SIM_CONFIG.AUTOPILOT.MANUAL_DEADZONE) finalControls.aileron = apCmds.aileron;
-            if (keyStateControls.isManualThrottleInput) {
-                ap.modes.SPD_HOLD = false; ap.modes.VNAV = false;
-                keyStateControls.isManualThrottleInput = false;
-            } else {
-                finalControls.throttle = apCmds.throttle;
-                if (throttleSlider) throttleSlider.value = Math.round(finalControls.throttle * 100);
-                if (thrValText) thrValText.innerText = `${Math.round(finalControls.throttle * 100)}%`;
-            }
-        }
-
-        physicsWorker.postMessage({ type: 'controls', ...finalControls });
-
-        const eng1N1 = s.engineData ? s.engineData.eng1_N1 : 0;
-        oscilloscope.pushData(s.aoa, s.pitch, s.speed, s.gForce, eng1N1);
-        fdr.recordFrame(now / 1000, s, finalControls, ap);
-
-        hud.update({
-            speed: s.speed, altitude: s.altitude, mach: s.mach, aoa: s.aoa, gForce: s.gForce,
-            pitch: s.pitch, roll: s.roll, heading: s.heading, alpha: s.aoa, beta: s.beta,
-            vnav_active: ap.modes.VNAV, vdi_deviation: fmsCmd ? fmsCmd.vdi_deviation : 0,
-            activeWaypoint: fmsCmd ? fmsCmd.activeWaypointId : null,
-            waypointDistance: fmsCmd ? fmsCmd.distance : 0, vnav_phase: fmsCmd ? fmsCmd.vertical_phase : null
-        });
-
-        if (s.engineData) {
-            const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-            setVal('eicas-n1-1', s.engineData.eng1_N1.toFixed(1));
-            setVal('eicas-egt-1', Math.round(s.engineData.eng1_EGT));
-            setVal('eicas-ff-1', Math.round(s.engineData.eng1_FF));
-            setVal('eicas-n1-2', s.engineData.eng2_N1.toFixed(1));
-            setVal('eicas-egt-2', Math.round(s.engineData.eng2_EGT));
-            setVal('eicas-ff-2', Math.round(s.engineData.eng2_FF));
-        }
-
-        sound.update(finalControls.throttle, s.speed, s.altitude, vspeedFpm, s.aoa, s.altitude <= 5);
-
-        const distToRwy = Math.hypot(s.x, s.y - 350);
-        if (distToRwy > 100 && s.y < 350) {
-            const currentGlideAngle = Math.atan2(s.altitude * 0.3048, distToRwy) * (180 / Math.PI);
-            papiSprites[0].material = (currentGlideAngle > 3.5) ? lightSpriteMatWhite : lightSpriteMatRed;
-            papiSprites[1].material = (currentGlideAngle > 3.2) ? lightSpriteMatWhite : lightSpriteMatRed;
-            papiSprites[2].material = (currentGlideAngle > 2.8) ? lightSpriteMatWhite : lightSpriteMatRed;
-            papiSprites[3].material = (currentGlideAngle > 2.5) ? lightSpriteMatWhite : lightSpriteMatRed;
-        }
-
-        cloudOffset += dt * 0.002;
-        cloudTex1.offset.set(cloudOffset * 1.5, cloudOffset * 0.8);
-        cloudTex2.offset.set(cloudOffset * 0.9, cloudOffset * 0.5);
-
-        const planeAltitudeM = s.altMeters !== undefined ? s.altMeters : s.altitude * UNITS.FT_TO_M;
-        const posX = s.x, posY = Math.max(2.4, planeAltitudeM + 2.4), posZ = s.y;
-
-        camera.position.set(posX, posY, posZ);
-        camera.rotation.order = 'YXZ';
-        camera.rotation.y = THREE.MathUtils.degToRad(-s.heading);
-        camera.rotation.x = THREE.MathUtils.degToRad(s.pitch);
-        camera.rotation.z = THREE.MathUtils.degToRad(-s.roll);
-    };
-
-    animate();
+    if (!isSimRunning) {
+        isSimRunning = true;
+        animate();
+    }
 });
+
+function handlePhysicsMessage(e) {
+    const s = e.data;
+    if (!s || typeof s !== 'object' || isCrashed) return;
+    s_buffer = s;
+
+    const now = performance.now();
+    const dt = (now - lastFrameTime) / 1000;
+    lastFrameTime = now;
+
+    frameCount++;
+    if (now - lastFpsTime >= 1000) {
+        const currentFps = Math.round((frameCount * 1000) / (now - lastFpsTime));
+        const telFps = document.getElementById('tel-fps');
+        if (telFps) telFps.innerText = `FPS: ${currentFps}`;
+        frameCount = 0;
+        lastFpsTime = now;
+    }
+
+    const vspeedFpm = (s.dz ? -s.dz : 0) * UNITS.M_TO_FT * 60;
+
+    if (s.altitude <= 8 && (vspeedFpm < -1200 || Math.abs(s.pitch) > 15 || Math.abs(s.roll) > 25)) {
+        triggerCrash(s.speed, vspeedFpm);
+        return;
+    }
+
+    const fmsCmd = fms.update(s);
+    let apCmds = null;
+    if (ap.modes.AP_MASTER) {
+        if (s.pitch < -10) ap.targets.altitude = Math.max(s.altitude + 2000, 10000);
+        apCmds = ap.update(s, fmsCmd, dt);
+    }
+
+    let finalControls = { ...keyStateControls };
+
+    if (SIM_CONFIG.currentLevel === 'junior') {
+        const rollRad = THREE.MathUtils.degToRad(s.roll);
+        const liftComp = Math.abs(Math.sin(rollRad)) * 0.45;
+        finalControls.elevator += liftComp;
+        if (Math.abs(s.roll) > 28) finalControls.aileron = (s.roll > 0) ? -0.5 : 0.5;
+        if (s.altitude < 1500 && s.pitch < 0) {
+            finalControls.elevator = Math.max(finalControls.elevator, 0.6);
+        }
+    }
+
+    if (apCmds && ap.modes.AP_MASTER) {
+        if (Math.abs(keyStateControls.elevator) < SIM_CONFIG.AUTOPILOT.MANUAL_DEADZONE) finalControls.elevator = apCmds.elevator;
+        if (Math.abs(keyStateControls.aileron) < SIM_CONFIG.AUTOPILOT.MANUAL_DEADZONE) finalControls.aileron = apCmds.aileron;
+        if (keyStateControls.isManualThrottleInput) {
+            ap.modes.SPD_HOLD = false; ap.modes.VNAV = false;
+            keyStateControls.isManualThrottleInput = false;
+        } else {
+            finalControls.throttle = apCmds.throttle;
+            if (throttleSlider) throttleSlider.value = Math.round(finalControls.throttle * 100);
+            if (thrValText) thrValText.innerText = `${Math.round(finalControls.throttle * 100)}%`;
+        }
+    }
+
+    physicsWorker.postMessage({ type: 'controls', ...finalControls });
+
+    const eng1N1 = s.engineData ? s.engineData.eng1_N1 : 0;
+    oscilloscope.pushData(s.aoa, s.pitch, s.speed, s.gForce, eng1N1);
+    fdr.recordFrame(now / 1000, s, finalControls, ap);
+
+    hud.update({
+        speed: s.speed, altitude: s.altitude, mach: s.mach, aoa: s.aoa, gForce: s.gForce,
+        pitch: s.pitch, roll: s.roll, heading: s.heading, alpha: s.aoa, beta: s.beta,
+        vnav_active: ap.modes.VNAV, vdi_deviation: fmsCmd ? fmsCmd.vdi_deviation : 0,
+        activeWaypoint: fmsCmd ? fmsCmd.activeWaypointId : null,
+        waypointDistance: fmsCmd ? fmsCmd.distance : 0, vnav_phase: fmsCmd ? fmsCmd.vertical_phase : null
+    });
+
+    if (s.engineData) {
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+        setVal('eicas-n1-1', s.engineData.eng1_N1.toFixed(1));
+        setVal('eicas-egt-1', Math.round(s.engineData.eng1_EGT));
+        setVal('eicas-ff-1', Math.round(s.engineData.eng1_FF));
+        setVal('eicas-n1-2', s.engineData.eng2_N1.toFixed(1));
+        setVal('eicas-egt-2', Math.round(s.engineData.eng2_EGT));
+        setVal('eicas-ff-2', Math.round(s.engineData.eng2_FF));
+    }
+
+    sound.update(finalControls.throttle, s.speed, s.altitude, vspeedFpm, s.aoa, s.altitude <= 5);
+
+    const distToRwy = Math.hypot(s.x, s.y - 350);
+    if (distToRwy > 100 && s.y < 350) {
+        const currentGlideAngle = Math.atan2(s.altitude * 0.3048, distToRwy) * (180 / Math.PI);
+        papiSprites[0].material = (currentGlideAngle > 3.5) ? lightSpriteMatWhite : lightSpriteMatRed;
+        papiSprites[1].material = (currentGlideAngle > 3.2) ? lightSpriteMatWhite : lightSpriteMatRed;
+        papiSprites[2].material = (currentGlideAngle > 2.8) ? lightSpriteMatWhite : lightSpriteMatRed;
+        papiSprites[3].material = (currentGlideAngle > 2.5) ? lightSpriteMatWhite : lightSpriteMatRed;
+    }
+
+    cloudOffset += dt * 0.002;
+    cloudTex1.offset.set(cloudOffset * 1.5, cloudOffset * 0.8);
+    cloudTex2.offset.set(cloudOffset * 0.9, cloudOffset * 0.5);
+
+    const planeAltitudeM = s.altMeters !== undefined ? s.altMeters : s.altitude * UNITS.FT_TO_M;
+    const posX = s.x, posY = Math.max(2.4, planeAltitudeM + 2.4), posZ = s.y;
+
+    camera.position.set(posX, posY, posZ);
+    camera.rotation.order = 'YXZ';
+    camera.rotation.y = THREE.MathUtils.degToRad(-s.heading);
+    camera.rotation.x = THREE.MathUtils.degToRad(s.pitch);
+    camera.rotation.z = THREE.MathUtils.degToRad(-s.roll);
+}
+
+let cloudOffset = 0;
+let frameCount = 0;
+let lastFpsTime = performance.now();
 
 function animate() {
     requestAnimationFrame(animate);
@@ -802,7 +839,6 @@ function animate() {
     renderer.render(scene, camera);
 }
 
-// 📐 旋轉或縮放視窗時完整重置畫布與相機，徹底解決橫屏壓扁問題
 function handleResize() {
     const width = window.innerWidth;
     const height = window.innerHeight;
