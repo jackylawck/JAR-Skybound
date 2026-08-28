@@ -1,4 +1,4 @@
-# 🛩️ J.A.R. 衝上雲霄 | JAR Skybound
+# 🛩️ J.A.R. 衝上雲霄 | J.A.R. Skybound
 
 ---
 
